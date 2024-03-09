@@ -1,0 +1,5 @@
+breakout
+*.o
+compile_commands.json
+.cache/
+.config
