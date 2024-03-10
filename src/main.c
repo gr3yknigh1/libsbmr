@@ -15,12 +15,11 @@
 typedef char *const path_t;
 typedef unsigned short rc_t;
 
-#define OUT
-
 #define WINDOW_WIDTH 900
 #define WINDOW_HEIGHT 600
 
 #define SHADER_VERT_PATH "./assets/shaders/basic.vert"
+#define SHADER_FRAG_PATH "./assets/shaders/basic.frag"
 
 #define LOG_INFO(...) fprintf(stdout, "I: " __VA_ARGS__)
 #define LOG_DEBUG(...) fprintf(stdout, "D: " __VA_ARGS__)
@@ -33,6 +32,22 @@ static f32 TRIANGLE_VERTICES[] = {
     0.5f,  -0.5f, 0.0f, //
     0.0f,  0.5f,  0.0f  //
 };
+
+#define VEC3_ITEM_COUNT 3
+
+static void
+glad_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity,
+                      GLsizei length, const GLchar *message,
+                      const void *user_param) {
+    KEEP(source);
+    KEEP(id);
+    KEEP(length);
+    KEEP(user_param);
+
+    LOG_ERROR("GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
+              (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""), type,
+              severity, message);
+}
 
 static void
 glfw_error_callback(int code, const char *description) {
@@ -76,8 +91,7 @@ static enum {
     LOAD_FILE_NOT_EXISTS,
     LOAD_FILE_NOT_OPENED,
     LOAD_FILE_READ_ERR,
-} load_file(const path_t path, char **const OUT file_content,
-            u64 *OUT file_size) {
+} load_file(const path_t path, char **const file_content, u64 *file_size) {
     if (!noc_fs_is_exists(path)) {
         return LOAD_FILE_NOT_EXISTS;
     }
@@ -152,8 +166,15 @@ shader_compile(const char *source, u64 source_length, shader_type_t type,
 
     glShaderSource(id, 1, &source, (GLint *)&source_length);
 
-    // TODO(i.akkuzin): Add handling of compilation status.
+    // TODO(gr3yknigh1): Add handling of compilation status.
     glCompileShader(id);
+
+    int success;
+    glGetShaderiv(id, GL_COMPILE_STATUS, &success);
+
+    if (!success) {
+        return SHADER_COMPILE_ERR;
+    }
 
     *shader = (shader_t){
         .id = id,
@@ -197,9 +218,9 @@ main(void) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#ifdef GL_USE_COMPAT
+#if defined(GL_USE_COMPAT) || defined(BUILD_PLATFORM_APPLE)
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif // GL_USE_COMPAT
+#endif // GL_USE_COMPAT || BUILD_PLATFORM_APPLE
 
     GLFWwindow *window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT,
                                           "Breakout", nullptr, nullptr);
@@ -226,32 +247,104 @@ main(void) {
 
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
+#if defined(BUILD_CONFIG_DEBUG)
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(glad_message_callback, nullptr);
+#endif
+
     glfwSetFramebufferSizeCallback(window, glfw_frame_buffer_size_callback);
 
     LOG_INFO("Successfuly initialized!\n");
 
+    GLuint program = glCreateProgram();
+
+    {
+        shader_t vertex_shader = {0};
+        rc_t vertex_shader_comp_rc = shader_load_and_compile(
+            SHADER_VERT_PATH, SHADER_TYPE_VERT, &vertex_shader);
+
+        if (vertex_shader_comp_rc != SHADER_COMPILE_OK) {
+            LOG_ERROR("Failed to load vertex shader source: rc: %hi\n",
+                      vertex_shader_comp_rc);
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return EXIT_FAILURE;
+        }
+
+        shader_t fragment_shader = {0};
+        rc_t fragment_shader_comp_rc = shader_load_and_compile(
+            SHADER_FRAG_PATH, SHADER_TYPE_FRAG, &fragment_shader);
+
+        if (fragment_shader_comp_rc != SHADER_COMPILE_OK) {
+            LOG_ERROR("Failed to load vertex shader source: rc: %hi\n",
+                      vertex_shader_comp_rc);
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return EXIT_FAILURE;
+        }
+
+        glAttachShader(program, vertex_shader.id);
+        glAttachShader(program, fragment_shader.id);
+        glLinkProgram(program);
+
+        {
+            int success;
+            char info_log[GL_INFO_LOG_LENGTH];
+            glGetProgramiv(program, GL_LINK_STATUS, &success);
+            if (!success) {
+                glGetProgramInfoLog(program, sizeof(info_log), nullptr,
+                                    info_log);
+                LOG_ERROR("Failed to link shader program: %s\n", info_log);
+                glfwDestroyWindow(window);
+                glfwTerminate();
+                return EXIT_FAILURE;
+            }
+        }
+
+        glDeleteShader(vertex_shader.id);
+        glDeleteShader(fragment_shader.id);
+    }
+
+    GLuint vao = 0;
+    glGenVertexArrays(1, &vao);
+
     GLuint vbo = 0;
     glGenBuffers(1, &vbo);
+    glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(TRIANGLE_VERTICES), TRIANGLE_VERTICES,
                  GL_STATIC_DRAW);
 
-    // GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+    glVertexAttribPointer(0, VEC3_ITEM_COUNT, GL_FLOAT, GL_FALSE,
+                          VEC3_ITEM_COUNT * sizeof(f32), nullptr);
+    glEnableVertexAttribArray(0);
 
-    shader_t vertex_shader = {0};
-    rc_t vertex_shader_comp_rc = shader_load_and_compile(
-        SHADER_VERT_PATH, SHADER_TYPE_VERT, &vertex_shader);
+    // NOTE(gr3yknigh1): that this is allowed, the call to glVertexAttribPointer
+    // registered VBO as the vertex attribute's bound vertex buffer object so
+    // afterwards we can safely unbind
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    if (vertex_shader_comp_rc != SHADER_COMPILE_OK) {
-        LOG_ERROR("Failed to load vertex shader source: rc: %hi\n", vertex_shader_comp_rc);
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return EXIT_FAILURE;
+    // NOTE(i.akkuzin): You can unbind the VAO afterwards so other VAO calls
+    // won't accidentally modify this VAO, but this rarely happens. Modifying
+    // other VAOs requires a call to glBindVertexArray anyways so we generally
+    // don't unbind VAOs (nor VBOs) when it's not directly necessary.
+    glBindVertexArray(0);
+
+
+    {
+        GLenum err = GL_NO_ERROR;
+        while ((err = glGetError()) != GL_NO_ERROR) {
+            LOG_ERROR("GL error cought: %i\n", err);
+        }
     }
 
     while (!glfwWindowShouldClose(window)) {
         tick_update(window);
         tick_render(window);
+
+        glUseProgram(program);
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
