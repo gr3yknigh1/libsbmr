@@ -39,6 +39,7 @@ CC       := gcc
 CFLAGS   := -Wall -Wextra -pedantic -std=c2x
 LDFLAGS  := -lnoc -lm
 INCFLAGS := \
+	-I $(SRCROOT)/src \
 	-I $(SRCROOT)/include \
 	-I $(GLFW_DIR)/include \
 	-I $(GLAD_DIR)/include \
@@ -74,7 +75,10 @@ BREAKOUT_SRC   := $(SRCROOT)/src
 BREAKOUT_BIN   := $(SRCROOT)/breakout
 
 BREAKOUT_SRCS  := \
-	$(BREAKOUT_SRC)/main.c
+	$(BREAKOUT_SRC)/main.c \
+	$(BREAKOUT_SRC)/io.c \
+	$(BREAKOUT_SRC)/shader.c \
+
 BREAKOUT_OBJS  := $(patsubst $(BREAKOUT_SRC)/%.c, $(BREAKOUT_SRC)/%.o, $(BREAKOUT_SRCS))
 
 BREAKOUT_DEPS  := \
