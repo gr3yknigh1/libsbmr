@@ -30,16 +30,14 @@ typedef unsigned short rc_t;
 static vec4 CLEAR_COLOR = {0.2f, 0.3f, 0.3f};
 
 static f32 VERTICES[] = {
-    0.5f,  0.5f,  0.0f, // top right
-    0.5f,  -0.5f, 0.0f, // bottom right
-    -0.5f, -0.5f, 0.0f, // bottom left
-    -0.5f, 0.5f,  0.0f  // top left
+    -0.5f, 0.5f,  0.0f, //
+    -0.5f, -0.5f, 0.0f, //
+    0.5f,  0.5f,  0.0f, //
+    0.5f,  0.5f,  0.0f, //
+    0.5f,  -0.5f, 0.0f, //
+    -0.5f, -0.5f, 0.0f, //
 };
 
-static f32 INDICES[] = {
-    0, 1, 3, // first triangle
-    1, 2, 3  // second triangle
-};
 
 #define VEC3_ITEM_COUNT 3
 
@@ -110,7 +108,7 @@ main(void) {
 
     glfwSetFramebufferSizeCallback(window, glfw_frame_buffer_size_callback);
 
-    LOG_INFO("Successfuly initialized!\n");
+    LOG_INFO("Successfully initialized!\n");
 
     GLuint program = glCreateProgram();
 
@@ -164,8 +162,7 @@ main(void) {
     // NOTE(gr3yknigh1):
     //     * Vertex Array Object
     //     * Vertex Buffer Object
-    //     * Element Buffer Object
-    GLuint vao, vbo, ebo;
+    GLuint vao, vbo;
 
     {
         glGenVertexArrays(1, &vao);
@@ -180,22 +177,9 @@ main(void) {
     }
 
     {
-        glGenBuffers(1, &ebo);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(INDICES), INDICES,
-                     GL_STATIC_DRAW);
-    }
-
-    {
         glVertexAttribPointer(0, VEC3_ITEM_COUNT, GL_FLOAT, GL_FALSE,
                               VEC3_ITEM_COUNT * sizeof(f32), nullptr);
         glEnableVertexAttribArray(0);
-    }
-
-    {
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
     }
 
     {
@@ -205,7 +189,9 @@ main(void) {
         }
     }
 
+#if 0
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -218,9 +204,7 @@ main(void) {
 
         glUseProgram(program);
         glBindVertexArray(vao);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        glDrawElements(GL_TRIANGLES, sizeof(INDICES) / sizeof(INDICES[0]),
-                       GL_UNSIGNED_INT, nullptr);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -228,7 +212,6 @@ main(void) {
 
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
-    glDeleteBuffers(1, &ebo);
     glDeleteProgram(program);
 
     glfwDestroyWindow(window);
