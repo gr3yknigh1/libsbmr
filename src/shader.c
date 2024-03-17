@@ -5,15 +5,13 @@
 #include <glad/glad.h>
 
 bool
-shader_type_is_valid(shader_type_t value) {
+ShaderTypeIsValid(ShaderType value) {
     return value >= 0 && value < SHADER_TYPE_COUNT;
 }
 
-shader_compile_status_t
-shader_compile(const char *source, u64 source_length, shader_type_t type,
-               shader_t *shader) {
-    if (source == nullptr || source_length == 0 || shader == nullptr ||
-        !shader_type_is_valid(type)) {
+ShaderCompileStatus
+ShaderCompile(const char *source, unsigned long sourceLength, ShaderType type, Shader *shader) {
+    if (source == nullptr || sourceLength == 0 || shader == nullptr || !ShaderTypeIsValid(type)) {
         return SHADER_COMPILE_INVALID_VALUE;
     }
 
@@ -30,7 +28,7 @@ shader_compile(const char *source, u64 source_length, shader_type_t type,
         return SHADER_COMPILE_INVALID_VALUE;
     }
 
-    glShaderSource(id, 1, &source, (GLint *)&source_length);
+    glShaderSource(id, 1, &source, (GLint *)&sourceLength);
     glCompileShader(id);
 
     int success;
@@ -45,14 +43,12 @@ shader_compile(const char *source, u64 source_length, shader_type_t type,
     return SHADER_COMPILE_OK;
 }
 
-shader_compile_status_t
-shader_load_and_compile(const char *source_file_path, shader_type_t type,
-                        shader_t *shader) {
+ShaderCompileStatus
+ShaderLoadAndCompile(const char *sourceFilePath, ShaderType type, Shader *shader) {
     char *source = nullptr;
-    u64 source_length = 0;
+    unsigned long sourceLength = 0;
 
-    load_file_status_t rc0 =
-        load_file(source_file_path, (char **const)&source, &source_length);
+    LoadFileStatus rc0 = LoadFile(sourceFilePath, (char **const)&source, &sourceLength);
 
     switch (rc0) {
     case LOAD_FILE_OK:
@@ -65,8 +61,7 @@ shader_load_and_compile(const char *source_file_path, shader_type_t type,
         return SHADER_COMPILE_FILE_LOAD_ERR;
     }
 
-    shader_compile_status_t rc1 =
-        shader_compile(source, source_length, type, shader);
+    ShaderCompileStatus rc1 = ShaderCompile(source, sourceLength, type, shader);
     free(source);
     return rc1;
 }

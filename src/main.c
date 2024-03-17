@@ -7,29 +7,19 @@
 
 #include <cglm/vec3.h>
 
-#include <nostdlib/buf.h>
-#include <nostdlib/fs.h>
-#include <nostdlib/macros.h>
-#include <nostdlib/types.h>
-
 #include "io.h"
+#include "log.h"
 #include "shader.h"
-
-typedef unsigned short rc_t;
 
 #define WINDOW_WIDTH 900
 #define WINDOW_HEIGHT 600
 
+#define KEEP(__X) ((void)__X)
+
 #define SHADER_VERT_PATH "./assets/shaders/basic.vert"
 #define SHADER_FRAG_PATH "./assets/shaders/basic.frag"
 
-#define LOG_INFO(...) fprintf(stdout, "I: " __VA_ARGS__)
-#define LOG_DEBUG(...) fprintf(stdout, "D: " __VA_ARGS__)
-#define LOG_ERROR(...) fprintf(stderr, "E: " __VA_ARGS__)
-
-static vec4 CLEAR_COLOR = {0.2f, 0.3f, 0.3f};
-
-static f32 VERTICES[] = {
+static float VERTICES[] = {
     -0.5f, 0.5f,  0.0f, //
     -0.5f, -0.5f, 0.0f, //
     0.5f,  0.5f,  0.0f, //
@@ -38,30 +28,25 @@ static f32 VERTICES[] = {
     -0.5f, -0.5f, 0.0f, //
 };
 
-
-#define VEC3_ITEM_COUNT 3
-
 static void
-glad_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity,
-                      GLsizei length, const GLchar *message,
-                      const void *user_param) {
+GLADDebugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message,
+                         const void *userParam) {
     KEEP(source);
     KEEP(id);
     KEEP(length);
-    KEEP(user_param);
+    KEEP(userParam);
 
     LOG_ERROR("GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
-              (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""), type,
-              severity, message);
+              (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""), type, severity, message);
 }
 
 static void
-glfw_error_callback(int code, const char *description) {
+GLFWErrorCallback(int code, const char *description) {
     LOG_ERROR("[GLFW] (%i) %s\n", code, description);
 }
 
 static void
-glfw_frame_buffer_size_callback(GLFWwindow *, int width, int height) {
+GLFWFrameBufferSizeCallback(GLFWwindow *, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
@@ -76,9 +61,8 @@ main(void) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow *window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT,
-                                          "Breakout", nullptr, nullptr);
-    glfwSetErrorCallback(glfw_error_callback);
+    GLFWwindow *window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Breakout", nullptr, nullptr);
+    glfwSetErrorCallback(GLFWErrorCallback);
 
     int major, minor, revision;
     glfwGetVersion(&major, &minor, &revision);
@@ -103,60 +87,55 @@ main(void) {
 
 #if defined(BUILD_CONFIG_DEBUG)
     glEnable(GL_DEBUG_OUTPUT);
-    glDebugMessageCallback(glad_message_callback, nullptr);
+    glDebugMessageCallback(GLADDebugMessageCallback, nullptr);
 #endif
 
-    glfwSetFramebufferSizeCallback(window, glfw_frame_buffer_size_callback);
+    glfwSetFramebufferSizeCallback(window, GLFWFrameBufferSizeCallback);
 
     LOG_INFO("Successfully initialized!\n");
 
     GLuint program = glCreateProgram();
 
     {
-        shader_t vert_shader = 0;
-        shader_compile_status_t vert_shader_status = shader_load_and_compile(
-            SHADER_VERT_PATH, SHADER_TYPE_VERT, &vert_shader);
+        Shader vertShader = 0;
+        ShaderCompileStatus vertCompStatus = ShaderLoadAndCompile(SHADER_VERT_PATH, SHADER_TYPE_VERT, &vertShader);
 
-        if (vert_shader_status != SHADER_COMPILE_OK) {
-            LOG_ERROR("Failed to load vertex shader source: rc: %hi\n",
-                      vert_shader_status);
+        if (vertCompStatus != SHADER_COMPILE_OK) {
+            LOG_ERROR("Failed to load vertex shader source: rc: %hi\n", vertCompStatus);
             glfwDestroyWindow(window);
             glfwTerminate();
             return EXIT_FAILURE;
         }
 
-        shader_t fragment_shader = 0;
-        shader_compile_status_t frag_shader_status = shader_load_and_compile(
-            SHADER_FRAG_PATH, SHADER_TYPE_FRAG, &fragment_shader);
+        Shader fragShader = 0;
+        ShaderCompileStatus fragCompStatus = ShaderLoadAndCompile(SHADER_FRAG_PATH, SHADER_TYPE_FRAG, &fragShader);
 
-        if (frag_shader_status != SHADER_COMPILE_OK) {
-            LOG_ERROR("Failed to load vertex shader source: rc: %hi\n",
-                      vert_shader_status);
+        if (fragCompStatus != SHADER_COMPILE_OK) {
+            LOG_ERROR("Failed to load vertex shader source: rc: %hi\n", fragCompStatus);
             glfwDestroyWindow(window);
             glfwTerminate();
             return EXIT_FAILURE;
         }
 
-        glAttachShader(program, vert_shader);
-        glAttachShader(program, fragment_shader);
+        glAttachShader(program, vertShader);
+        glAttachShader(program, fragShader);
         glLinkProgram(program);
 
         {
             int success;
-            char info_log[GL_INFO_LOG_LENGTH];
+            char infoLog[GL_INFO_LOG_LENGTH];
             glGetProgramiv(program, GL_LINK_STATUS, &success);
             if (!success) {
-                glGetProgramInfoLog(program, sizeof(info_log), nullptr,
-                                    info_log);
-                LOG_ERROR("Failed to link shader program: %s\n", info_log);
+                glGetProgramInfoLog(program, sizeof(infoLog), nullptr, infoLog);
+                LOG_ERROR("Failed to link shader program: %s\n", infoLog);
                 glfwDestroyWindow(window);
                 glfwTerminate();
                 return EXIT_FAILURE;
             }
         }
 
-        glDeleteShader(vert_shader);
-        glDeleteShader(fragment_shader);
+        glDeleteShader(vertShader);
+        glDeleteShader(fragShader);
     }
 
     // NOTE(gr3yknigh1):
@@ -172,21 +151,12 @@ main(void) {
     {
         glGenBuffers(1, &vbo);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(VERTICES), VERTICES,
-                     GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(VERTICES), VERTICES, GL_STATIC_DRAW);
     }
 
     {
-        glVertexAttribPointer(0, VEC3_ITEM_COUNT, GL_FLOAT, GL_FALSE,
-                              VEC3_ITEM_COUNT * sizeof(f32), nullptr);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
         glEnableVertexAttribArray(0);
-    }
-
-    {
-        GLenum err = GL_NO_ERROR;
-        while ((err = glGetError()) != GL_NO_ERROR) {
-            LOG_ERROR("GL error cought: %i\n", err);
-        }
     }
 
 #if 0
@@ -199,7 +169,7 @@ main(void) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
 
-        glClearColor(CLEAR_COLOR[0], CLEAR_COLOR[1], CLEAR_COLOR[2], 1.0f);
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(program);

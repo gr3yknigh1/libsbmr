@@ -2,11 +2,22 @@
 
 #include <stdlib.h>
 
-#include <nostdlib/fs.h>
+#if defined(__linux__)
+#include <unistd.h>
+#elif defined(_WIN32)
+#include <io.h>
+#define F_OK 0
+#define access _access
+#endif
 
-u64
-file_size(FILE *f) {
-    u64 size = 0;
+static bool
+IsPathExists(const char *s) {
+    return access(s, F_OK) == 0;
+}
+
+unsigned long
+GetFileSize(FILE *f) {
+    unsigned long size = 0;
 
     fseek(f, 0, SEEK_END);
     size = ftell(f);
@@ -15,30 +26,30 @@ file_size(FILE *f) {
     return size;
 }
 
-load_file_status_t
-load_file(const char *file_path, char **const content, u64 *loaded_bytes) {
-    if (!noc_fs_is_exists(file_path)) {
+LoadFileStatus
+LoadFile(const char *filePath, char **const content, size_t *loadedBytes) {
+    if (!IsPathExists(filePath)) {
         return LOAD_FILE_NOT_EXISTS;
     }
 
-    if (loaded_bytes == nullptr) {
+    if (loadedBytes == nullptr) {
         return LOAD_FILE_FAILED;
     }
 
-    FILE *f = fopen(file_path, "r");
+    FILE *f = fopen(filePath, "r");
 
     if (f == nullptr) {
         return LOAD_FILE_NOT_OPENED;
     }
 
-    *loaded_bytes = file_size(f);
+    *loadedBytes = GetFileSize(f);
 
-    if (loaded_bytes == 0) {
+    if (loadedBytes == 0) {
         return LOAD_FILE_OK;
     }
 
-    *content = malloc(*loaded_bytes);
-    fread(*content, *loaded_bytes, 1, f);
+    *content = malloc(*loadedBytes);
+    fread(*content, *loadedBytes, 1, f);
     fclose(f);
 
     return LOAD_FILE_OK;

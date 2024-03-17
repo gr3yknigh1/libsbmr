@@ -37,7 +37,7 @@ default: all
 
 CC       := gcc
 CFLAGS   := -Wall -Wextra -pedantic -std=c2x
-LDFLAGS  := -lnoc -lm
+LDFLAGS  := -lm
 INCFLAGS := \
 	-I $(SRCROOT)/src \
 	-I $(SRCROOT)/include \
