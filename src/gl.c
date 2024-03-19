@@ -1,5 +1,7 @@
 #include "gl.h"
 
+#include <stdlib.h>
+
 #include "log.h"
 
 // TODO(i.akkuzin): Replace with dynamic array?
@@ -16,5 +18,9 @@ HandleGlError(const char *file, unsigned int lineno, const char *expression) {
 
     for (unsigned short i = 0; i < errorsCount; ++i) {
         LOG_ERROR("GL: %s:%hu: %s => %i\n", file, lineno, expression, errors[i]);
+    }
+
+    if (errorsCount > 0) {
+        exit(EXIT_FAILURE);
     }
 }

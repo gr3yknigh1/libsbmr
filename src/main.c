@@ -7,6 +7,7 @@
 
 #include <cglm/vec3.h>
 
+#include "gl.h"
 #include "io.h"
 #include "log.h"
 #include "shader.h"
@@ -83,18 +84,19 @@ main(void) {
         return EXIT_FAILURE;
     }
 
-    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    GL_CALL(glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT));
 
 #if defined(BUILD_CONFIG_DEBUG)
-    glEnable(GL_DEBUG_OUTPUT);
-    glDebugMessageCallback(GLADDebugMessageCallback, nullptr);
+    GL_CALL(glEnable(GL_DEBUG_OUTPUT));
+    GL_CALL(glDebugMessageCallback(GLADDebugMessageCallback, nullptr));
 #endif
 
     glfwSetFramebufferSizeCallback(window, GLFWFrameBufferSizeCallback);
 
     LOG_INFO("Successfully initialized!\n");
 
-    GLuint program = glCreateProgram();
+    GLuint program;
+    GL_CALLP(glCreateProgram(), &program);
 
     {
         Shader vertShader = 0;
@@ -117,16 +119,16 @@ main(void) {
             return EXIT_FAILURE;
         }
 
-        glAttachShader(program, vertShader);
-        glAttachShader(program, fragShader);
-        glLinkProgram(program);
+        GL_CALL(glAttachShader(program, vertShader));
+        GL_CALL(glAttachShader(program, fragShader));
+        GL_CALL(glLinkProgram(program));
 
         {
             int success;
             char infoLog[GL_INFO_LOG_LENGTH];
-            glGetProgramiv(program, GL_LINK_STATUS, &success);
+            GL_CALL(glGetProgramiv(program, GL_LINK_STATUS, &success));
             if (!success) {
-                glGetProgramInfoLog(program, sizeof(infoLog), nullptr, infoLog);
+                GL_CALL(glGetProgramInfoLog(program, sizeof(infoLog), nullptr, infoLog));
                 LOG_ERROR("Failed to link shader program: %s\n", infoLog);
                 glfwDestroyWindow(window);
                 glfwTerminate();
@@ -134,8 +136,8 @@ main(void) {
             }
         }
 
-        glDeleteShader(vertShader);
-        glDeleteShader(fragShader);
+        GL_CALL(glDeleteShader(vertShader));
+        GL_CALL(glDeleteShader(fragShader));
     }
 
     // NOTE(gr3yknigh1):
@@ -144,23 +146,23 @@ main(void) {
     GLuint vao, vbo;
 
     {
-        glGenVertexArrays(1, &vao);
-        glBindVertexArray(vao);
+        GL_CALL(glGenVertexArrays(1, &vao));
+        GL_CALL(glBindVertexArray(vao));
     }
 
     {
-        glGenBuffers(1, &vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(VERTICES), VERTICES, GL_STATIC_DRAW);
+        GL_CALL(glGenBuffers(1, &vbo));
+        GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, vbo));
+        GL_CALL(glBufferData(GL_ARRAY_BUFFER, sizeof(VERTICES), VERTICES, GL_STATIC_DRAW));
     }
 
     {
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
-        glEnableVertexAttribArray(0);
+        GL_CALL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr));
+        GL_CALL(glEnableVertexAttribArray(0));
     }
 
 #if 0
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    GL_CALL(glPolygonMode(GL_FRONT_AND_BACK, GL_LINE));
 #endif
 
     while (!glfwWindowShouldClose(window)) {
@@ -169,20 +171,20 @@ main(void) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
 
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        GL_CALL(glClearColor(0.2f, 0.3f, 0.3f, 1.0f));
+        GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
 
-        glUseProgram(program);
-        glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        GL_CALL(glUseProgram(program));
+        GL_CALL(glBindVertexArray(vao));
+        GL_CALL(glDrawArrays(GL_TRIANGLES, 0, 6));
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    glDeleteVertexArrays(1, &vao);
-    glDeleteBuffers(1, &vbo);
-    glDeleteProgram(program);
+    GL_CALL(glDeleteVertexArrays(1, &vao));
+    GL_CALL(glDeleteBuffers(1, &vbo));
+    GL_CALL(glDeleteProgram(program));
 
     glfwDestroyWindow(window);
     glfwTerminate();

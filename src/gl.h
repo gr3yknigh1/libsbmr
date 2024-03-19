@@ -7,12 +7,16 @@
 
 extern void HandleGlError(const char *file, unsigned int lineno, const char *expression);
 
-#define GL_CALL(__EXPR)                                                                                                \
-    do {                                                                                                               \
-        __EXPR;                                                                                                        \
-        handle_gl_error(__FILE__, __LINE__, #__EXPR)                                                                   \
+#define GL_CALL(__EXPR)                             \
+    do {                                            \
+        __EXPR;                                     \
+        HandleGlError(__FILE__, __LINE__, #__EXPR); \
     } while (0)
 
-#define GL_CALLP
+#define GL_CALLP(__EXPR, __PTR)                     \
+    do {                                            \
+        *(__PTR) = __EXPR;                          \
+        HandleGlError(__FILE__, __LINE__, #__EXPR); \
+    } while (0)
 
 #endif //  BREAKOUT_GL_H_

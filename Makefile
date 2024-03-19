@@ -6,7 +6,7 @@ SRCROOT     := $(THIS_MAKE_FILE_DIR)
 CONFIG_FILE ?= $(SRCROOT)/.config
 
 ifeq ($(shell test -e $(CONFIG_FILE) && echo -n yes),yes)
-	include $(SRCROOT)/.config
+	include $(CONFIG_FILE)
 endif
 
 
@@ -77,6 +77,7 @@ BREAKOUT_BIN   := $(SRCROOT)/breakout
 BREAKOUT_SRCS  := \
 	$(BREAKOUT_SRC)/main.c \
 	$(BREAKOUT_SRC)/io.c \
+	$(BREAKOUT_SRC)/gl.c \
 	$(BREAKOUT_SRC)/shader.c \
 
 BREAKOUT_OBJS  := $(patsubst $(BREAKOUT_SRC)/%.c, $(BREAKOUT_SRC)/%.o, $(BREAKOUT_SRCS))

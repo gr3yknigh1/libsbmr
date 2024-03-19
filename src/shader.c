@@ -4,6 +4,9 @@
 
 #include <glad/glad.h>
 
+#include "gl.h"
+
+
 bool
 ShaderTypeIsValid(ShaderType value) {
     return value >= 0 && value < SHADER_TYPE_COUNT;
@@ -19,20 +22,20 @@ ShaderCompile(const char *source, unsigned long sourceLength, ShaderType type, S
 
     switch (type) {
     case SHADER_TYPE_VERT:
-        id = glCreateShader(GL_VERTEX_SHADER);
+        GL_CALLP(glCreateShader(GL_VERTEX_SHADER), &id);
         break;
     case SHADER_TYPE_FRAG:
-        id = glCreateShader(GL_FRAGMENT_SHADER);
+        GL_CALLP(glCreateShader(GL_FRAGMENT_SHADER), &id);
         break;
     case SHADER_TYPE_COUNT:
         return SHADER_COMPILE_INVALID_VALUE;
     }
 
-    glShaderSource(id, 1, &source, (GLint *)&sourceLength);
-    glCompileShader(id);
+    GL_CALL(glShaderSource(id, 1, &source, (GLint *)&sourceLength));
+    GL_CALL(glCompileShader(id));
 
     int success;
-    glGetShaderiv(id, GL_COMPILE_STATUS, &success);
+    GL_CALL(glGetShaderiv(id, GL_COMPILE_STATUS, &success));
 
     if (!success) {
         return SHADER_COMPILE_ERR;
