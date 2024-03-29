@@ -1,5 +1,10 @@
-breakout
-*.o
-compile_commands.json
-.cache/
-.config
+
+# Editors
+.vs/
+
+
+# Build system
+build/
+
+out/
+
