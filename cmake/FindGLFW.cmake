@@ -1,0 +1,24 @@
+set(GLFW_SEARCH_PATHS ${EXTERNAL_DIR})
+
+find_path(
+    GLFW_INCLUDE_PATH
+    NAMES GLFW/glfw3.h
+    PATHS ${GLFW_SEARCH_PATHS}
+    PATH_SUFFIXES include
+)
+
+find_library(
+    GLFW_LIBRARIES
+    NAMES glfw3 libglfw3.a libglfw.a glfw
+    PATHS ${GLFW_SEARCH_PATHS}
+    PATH_SUFFIXES lib
+)
+
+set(GLFW_FOUND "NO")
+
+if(GLFW_INCLUDE_PATH AND GLFW_LIBRARIES)
+    set(GLFW_FOUND "YES")
+    message("EXTERNAL LIBRARY 'GLFW3' FOUND")
+else()
+    message("ERROR: EXTERNAL LIBRARY 'GLFW3' NOT FOUND")
+endif(GLFW_INCLUDE_PATH AND GLFW_LIBRARIES)
