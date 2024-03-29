@@ -5,21 +5,8 @@ project(
     LANGUAGES CXX
 )
 
-list(
-    APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake
-)
-
 add_executable(
     ${PROJECT_NAME}
-    ${PROJECT_SOURCE_DIR}/src/main.c
-    ${PROJECT_SOURCE_DIR}/src/gl.c
-    ${PROJECT_SOURCE_DIR}/src/io.c
-    ${PROJECT_SOURCE_DIR}/src/shader.c
+    ${PROJECT_SOURCE_DIR}/src/Main.cpp
 )
 
-set(
-    EXTERNAL_DIR 
-    ${PROJECT_SOURCE_DIR}/external 
-    CACHE 
-    PATH "External dependencies directory."
-)

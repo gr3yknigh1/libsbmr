@@ -1,5 +1,5 @@
 CompileFlags:
-  Add: [-std=c2x, -Wall, -Wextra, -pedantic]
-  Compiler: clang
+  Add: [-std=c++20, -Wall, -Wextra]
+  Compiler: msvc
 Diagnostics:
   UnusedIncludes: None
