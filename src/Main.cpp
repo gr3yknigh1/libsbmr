@@ -6,30 +6,126 @@
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
  * LICENSE  Unlicensed
  * ============================================
+ *
+ * This is small educational project where I
+ * doodling around with Windows API and computer
+ * graphics.
  * */
+
 #include <Windows.h>
 
 #include "Types.hpp"
 #include "String.hpp"
 #include "Macros.hpp"
 
+GlobalVar bool       shouldStop = false;
 
-GlobalVar bool shouldStop = false;
+GlobalVar BITMAPINFO bmInfo          = {0};
+GlobalVar HBITMAP    bmHandle        = nullptr;
+GlobalVar void*      bmBuffer        = nullptr;
 
+GlobalVar HDC        bmDeviceContext = nullptr;
 
-#define TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
+#define Win32_TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
 
-
-InternalFunc constexpr void
-GetSizeOfRect(const RECT *r, S64 *width, S64 *height) noexcept
+InternalFunc void
+Win32_UpdateWindow(HDC deviceContext,
+                   S32 x,
+                   S32 y,
+                   S32 width,
+                   S32 height) NoThrows
 {
-    *height = r->bottom - r->top;
-    *width = r->right - r->left;
+    // int StretchDIBits(
+    //   [in] HDC              hdc,
+    //   [in] int              xDest,
+    //   [in] int              yDest,
+    //   [in] int              DestWidth,
+    //   [in] int              DestHeight,
+    //   [in] int              xSrc,
+    //   [in] int              ySrc,
+    //   [in] int              SrcWidth,
+    //   [in] int              SrcHeight,
+    //   [in] const VOID       *lpBits,
+    //   [in] const BITMAPINFO *lpbmi,
+    //   [in] UINT             iUsage,       palletize (DIB_PAL_COLORS) or rgb (DIB_RGB_COLORS)
+    //   [in] DWORD            rop           Raster-operation code: (lookup at msdn)
+    // );
+
+    StretchDIBits(
+        deviceContext,
+        x, y, width, height, // Copying from buffer with exactly the same
+        x, y, width, height, // offset and size, which is our dest.
+        bmBuffer,
+        &bmInfo,
+        DIB_RGB_COLORS,
+        SRCCOPY
+    );
+}
+
+/*
+ * DIB: Device Independent Bitmap
+ */
+InternalFunc void
+Win32_ResizeDIBSection(S32 width,
+                       S32 height) NoThrows
+{
+    // HBITMAP CreateDIBSection(
+    //   [in]  HDC              hdc,
+    //   [in]  const BITMAPINFO *pbmi,
+    //   [in]  UINT             usage,
+    //   [out] VOID             **ppvBits,
+    //   [in]  HANDLE           hSection,
+    //   [in]  DWORD            offset
+    // );
+
+    if (bmHandle != nullptr) {
+        DeleteObject(bmHandle);
+    }
+
+    if (bmDeviceContext == nullptr) {
+        // TODO(ilya.a): Should we recreate context?
+        bmDeviceContext = CreateCompatibleDC(nullptr);
+    }
+
+    bmInfo.bmiHeader.biSize          = sizeof(bmInfo.bmiHeader);
+    bmInfo.bmiHeader.biWidth         = width;
+    bmInfo.bmiHeader.biHeight        = height;
+    bmInfo.bmiHeader.biPlanes        = 1;
+    bmInfo.bmiHeader.biBitCount      = 32;      // NOTE: Align to WORD
+    bmInfo.bmiHeader.biCompression   = BI_RGB;
+    bmInfo.bmiHeader.biSizeImage     = 0;
+    bmInfo.bmiHeader.biXPelsPerMeter = 0;
+    bmInfo.bmiHeader.biYPelsPerMeter = 0;
+    bmInfo.bmiHeader.biClrUsed       = 0;
+    bmInfo.bmiHeader.biClrImportant  = 0;
+
+
+    // TODO(i.akkuzin): Handle error
+    // HDC deviceContext = GetCompatibleDC(nullptr); // Asking device for input.
+
+    bmHandle = CreateDIBSection(
+        bmDeviceContext,
+        &bmInfo,
+        DIB_RGB_COLORS,
+        &bmBuffer,
+        nullptr, 0);
+
+    // ReleaseDC(0, deviceContext);
+}
+
+
+InternalFunc CompileTime void
+GetRectSize(In  const RECT *r,
+            Out S32        *w,
+            Out S32        *h) NoThrows
+{
+    *w = r->right  - r->left;
+    *h = r->bottom - r->top;
 }
 
 
 LRESULT CALLBACK
-WindowProc(HWND window,
+Win32_MainWindowProc(HWND window,
            UINT message,
            WPARAM wParam,
            LPARAM lParam)
@@ -42,6 +138,14 @@ WindowProc(HWND window,
         } break;
         case WM_SIZE: {
             OutputDebugString("WM_SIZE\n");
+
+            RECT r = {0};
+            GetClientRect(window, &r);
+
+            S32 width = 0, height = 0;
+            GetRectSize(&r, &width, &height);
+
+            Win32_ResizeDIBSection(width, height);
         } break;
         case WM_PAINT: {
             OutputDebugString("WM_PAINT\n");
@@ -49,25 +153,28 @@ WindowProc(HWND window,
             HDC deviceContext = BeginPaint(window, &paint);
 
             if (deviceContext == nullptr) {
-                // TODO(gr3yknigh1): Handle error
+                // TODO(i.akkuzin): Handle error
             } else {
-                S64 x = paint.rcPaint.left;
-                S64 y = paint.rcPaint.top;
-                S64 width = 0, height = 0;
-                GetSizeOfRect(&(paint.rcPaint), &width, &height);
+                S32 x = paint.rcPaint.left;
+                S32 y = paint.rcPaint.top;
+                S32 width = 0, height = 0;
+                GetRectSize(&(paint.rcPaint), &width, &height);
+
+                Win32_UpdateWindow(deviceContext, x, y, width, height);
+
                 PatBlt(deviceContext, x, y, width, height, WHITENESS);
-                TextOutA_CStr(deviceContext, 0, 0, "Hello world!");
+                Win32_TextOutA_CStr(deviceContext, 0, 0, "Hello world!");
             }
 
             EndPaint(window, &paint);
         } break;
         case WM_CLOSE: {
-            // TODO(gr3yknigh1): Ask for closing?
+            // TODO(i.akkuzin): Ask for closing?
             OutputDebugString("WM_CLOSE\n");
             shouldStop = true;
         } break;
         case WM_DESTROY: {
-            // TODO(gr3yknigh1): Casey says that we maybe should recreate
+            // TODO(i.akkuzin): Casey says that we maybe should recreate
             // window later?
             OutputDebugString("WM_DESTROY\n");
             // PostQuitMessage(0);
@@ -90,12 +197,12 @@ WinMain(HINSTANCE instance,
         int showMode)
 {
 
-    static LPCSTR CLASS_NAME = "Breakout";
-    static LPCSTR WINDOW_TITLE = "Breakout";
+    PersistVar LPCSTR CLASS_NAME = "Breakout";
+    PersistVar LPCSTR WINDOW_TITLE = "Breakout";
 
     WNDCLASS windowClass = {0};
     windowClass.style = CS_OWNDC | CS_VREDRAW | CS_HREDRAW;
-    windowClass.lpfnWndProc = WindowProc;
+    windowClass.lpfnWndProc = Win32_MainWindowProc;
     windowClass.hInstance = instance;
     windowClass.lpszClassName = CLASS_NAME;
 
