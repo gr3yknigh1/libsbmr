@@ -2,16 +2,16 @@
  * ============================================
  * BREAKOUT
  * ============================================
- * FILE     src/String.hpp
+ * FILE     src/Macros.hpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
  * LICENSE  Unlicensed
  * ============================================
  * */
-#ifndef BKR_STRING_HPP_INCLUDED
-#define BKR_STRING_HPP_INCLUDED
+#ifndef BRK_MACROS_HPP_INCLUDED
+#define BRK_MACROS_HPP_INCLUDED
 
-#include "Types.hpp"
+#define InternalFunc static
+#define GlobalVar static
+#define PersistVar static
 
-Size CStr_GetLength(CStr s) noexcept;
-
-#endif  // BKR_STRING_HPP_INCLUDED
+#endif  // BRK_MACROS_HPP_INCLUDED

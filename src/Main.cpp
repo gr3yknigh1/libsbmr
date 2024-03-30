@@ -3,7 +3,7 @@
  * BREAKOUT
  * ============================================
  * FILE     src/Main.cpp
- * AUTHOR   Akkuzin Ilya <gr3yknigh1@gmail.com>
+ * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
  * LICENSE  Unlicensed
  * ============================================
  * */
@@ -11,13 +11,16 @@
 
 #include "Types.hpp"
 #include "String.hpp"
+#include "Macros.hpp"
 
 
-#define TextOutA_CStr(HDC, X, Y, MSG) \
-    TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
+GlobalVar bool shouldStop = false;
 
 
-static constexpr void
+#define TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
+
+
+InternalFunc constexpr void
 GetSizeOfRect(const RECT *r, S64 *width, S64 *height) noexcept
 {
     *height = r->bottom - r->top;
@@ -41,26 +44,33 @@ WindowProc(HWND window,
             OutputDebugString("WM_SIZE\n");
         } break;
         case WM_PAINT: {
+            OutputDebugString("WM_PAINT\n");
             PAINTSTRUCT paint = {0};
             HDC deviceContext = BeginPaint(window, &paint);
 
             if (deviceContext == nullptr) {
-                // TODO: Handle error
+                // TODO(gr3yknigh1): Handle error
+            } else {
+                S64 x = paint.rcPaint.left;
+                S64 y = paint.rcPaint.top;
+                S64 width = 0, height = 0;
+                GetSizeOfRect(&(paint.rcPaint), &width, &height);
+                PatBlt(deviceContext, x, y, width, height, WHITENESS);
+                TextOutA_CStr(deviceContext, 0, 0, "Hello world!");
             }
 
-            S64 x = paint.rcPaint.left;
-            S64 y = paint.rcPaint.top;
-            S64 width = 0, height = 0;
-            GetSizeOfRect(&(paint.rcPaint), &width, &height);
-            PatBlt(deviceContext, x, y, width, height, WHITENESS);
-            colorSwitch = false;
-            TextOutA_CStr(deviceContext, 0, 0, "Hello world!");
             EndPaint(window, &paint);
         } break;
-        case WM_CLOSE:
+        case WM_CLOSE: {
+            // TODO(gr3yknigh1): Ask for closing?
+            OutputDebugString("WM_CLOSE\n");
+            shouldStop = true;
+        } break;
         case WM_DESTROY: {
+            // TODO(gr3yknigh1): Casey says that we maybe should recreate
+            // window later?
             OutputDebugString("WM_DESTROY\n");
-            PostQuitMessage(0);
+            // PostQuitMessage(0);
         } break;
 
         default: {
@@ -117,7 +127,7 @@ WinMain(HINSTANCE instance,
 
     MSG message = {};
 
-    while (GetMessageA(&message, nullptr, 0, 0) > 0) {
+    while (!shouldStop && GetMessageA(&message, nullptr, 0, 0) > 0) {
         TranslateMessage(&message);
         DispatchMessageA(&message);
     }

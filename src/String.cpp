@@ -3,7 +3,7 @@
  * BREAKOUT
  * ============================================
  * FILE     src/String.cpp
- * AUTHOR   Akkuzin Ilya <gr3yknigh1@gmail.com>
+ * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
  * LICENSE  Unlicensed
  * ============================================
  * */

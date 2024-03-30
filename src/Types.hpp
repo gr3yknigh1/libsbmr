@@ -3,7 +3,7 @@
  * BREAKOUT
  * ============================================
  * FILE     src/Types.hpp
- * AUTHOR   Akkuzin Ilya <gr3yknigh1@gmail.com>
+ * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
  * LICENSE  Unlicensed
  * ============================================
  * */
@@ -23,9 +23,9 @@ typedef unsigned long U64;
 typedef float F32;
 typedef double F64;
 
-typedef char Char;
 typedef const char * CStr;
 
 typedef unsigned long Size;
+
 
 #endif // BRK_TYPES_HPP_INCLUDED
