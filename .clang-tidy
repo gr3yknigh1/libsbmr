@@ -1,5 +1,0 @@
-Checks:          'clang-diagnostic-*,clang-analyzer-*,performance-*'
-WarningsAsErrors: '*'
-HeaderFilterRegex: ''
-AnalyzeTemporaryDtors: false
-FormatStyle:     LLVM
