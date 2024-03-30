@@ -1,6 +1,9 @@
 # Editors
 .vs/
 
+.cache/
+compile_commands.json
+
 # Build system
 build/
 

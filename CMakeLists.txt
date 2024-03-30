@@ -7,6 +7,7 @@ project(
 
 add_executable(
     ${PROJECT_NAME}
+    WIN32   # Required for entry point in WinAPI
     ${PROJECT_SOURCE_DIR}/src/Main.cpp
+    ${PROJECT_SOURCE_DIR}/src/String.cpp
 )
-
