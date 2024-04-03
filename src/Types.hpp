@@ -10,22 +10,20 @@
 #ifndef BRK_TYPES_HPP_INCLUDED
 #define BRK_TYPES_HPP_INCLUDED
 
-typedef signed char S8;
-typedef signed short S16;
-typedef signed int S32;
-typedef signed long S64;
+typedef signed char     s8;
+typedef signed short    s16;
+typedef signed int      s32;
+typedef signed long     s64;
 
-typedef unsigned char U8;
-typedef unsigned short U16;
-typedef unsigned int U32;
-typedef unsigned long U64;
+typedef unsigned char   u8;
+typedef unsigned short  u16;
+typedef unsigned int    u32;
+typedef unsigned long   u64;
 
-typedef float F32;
-typedef double F64;
+typedef float           f32;
+typedef double          f64;
 
-typedef const char * CStr;
-
-typedef unsigned long Size;
-
+typedef unsigned long   usize;
+typedef const char *    cstr;
 
 #endif // BRK_TYPES_HPP_INCLUDED

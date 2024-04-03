@@ -12,45 +12,49 @@
  * graphics.
  * */
 
+#include <cstdio>
+#include <cstdlib>
+#include <memory>
+
 #include <Windows.h>
 
+#include "StringView.hpp"
 #include "Types.hpp"
 #include "String.hpp"
 #include "Macros.hpp"
 
 GlobalVar bool       shouldStop = false;
+GlobalVar BITMAPINFO bmInfo     = {0};
+GlobalVar HBITMAP    bmHandle   = nullptr;
+GlobalVar void *     bmBuffer   = nullptr;
+GlobalVar HDC        bmDC       = nullptr;
 
-GlobalVar BITMAPINFO bmInfo          = {0};
-GlobalVar HBITMAP    bmHandle        = nullptr;
-GlobalVar void*      bmBuffer        = nullptr;
-
-GlobalVar HDC        bmDeviceContext = nullptr;
-
-#define Win32_TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
+#define Win32_TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr::GetLength((MSG)))
 
 InternalFunc void
 Win32_UpdateWindow(HDC deviceContext,
-                   S32 x,
-                   S32 y,
-                   S32 width,
-                   S32 height) NoThrows
+                   s32 x,
+                   s32 y,
+                   s32 width,
+                   s32 height) noexcept
 {
-    // int StretchDIBits(
-    //   [in] HDC              hdc,
-    //   [in] int              xDest,
-    //   [in] int              yDest,
-    //   [in] int              DestWidth,
-    //   [in] int              DestHeight,
-    //   [in] int              xSrc,
-    //   [in] int              ySrc,
-    //   [in] int              SrcWidth,
-    //   [in] int              SrcHeight,
-    //   [in] const VOID       *lpBits,
-    //   [in] const BITMAPINFO *lpbmi,
-    //   [in] UINT             iUsage,       palletize (DIB_PAL_COLORS) or rgb (DIB_RGB_COLORS)
-    //   [in] DWORD            rop           Raster-operation code: (lookup at msdn)
-    // );
-
+    /*
+     * int StretchDIBits(
+     *   [in] HDC              hdc,
+     *   [in] int              xDest,
+     *   [in] int              yDest,
+     *   [in] int              DestWidth,
+     *   [in] int              DestHeight,
+     *   [in] int              xSrc,
+     *   [in] int              ySrc,
+     *   [in] int              SrcWidth,
+     *   [in] int              SrcHeight,
+     *   [in] const VOID       *lpBits,
+     *   [in] const BITMAPINFO *lpbmi,
+     *   [in] UINT             iUsage,       palletize (DIB_PAL_COLORS) or rgb (DIB_RGB_COLORS)
+     *   [in] DWORD            rop           Raster-operation code: (lookup at msdn)
+     * );
+     */
     StretchDIBits(
         deviceContext,
         x, y, width, height, // Copying from buffer with exactly the same
@@ -66,25 +70,26 @@ Win32_UpdateWindow(HDC deviceContext,
  * DIB: Device Independent Bitmap
  */
 InternalFunc void
-Win32_ResizeDIBSection(S32 width,
-                       S32 height) NoThrows
+Win32_ResizeDIBSection(s32 width,
+                       s32 height) noexcept
 {
-    // HBITMAP CreateDIBSection(
-    //   [in]  HDC              hdc,
-    //   [in]  const BITMAPINFO *pbmi,
-    //   [in]  UINT             usage,
-    //   [out] VOID             **ppvBits,
-    //   [in]  HANDLE           hSection,
-    //   [in]  DWORD            offset
-    // );
+    /* HBITMAP CreateDIBSection(
+     *   [in]  HDC              hdc,
+     *   [in]  const BITMAPINFO *pbmi,
+     *   [in]  UINT             usage,
+     *   [out] VOID             **ppvBits,
+     *   [in]  HANDLE           hSection,
+     *   [in]  DWORD            offset
+     * );
+     */
 
     if (bmHandle != nullptr) {
         DeleteObject(bmHandle);
     }
 
-    if (bmDeviceContext == nullptr) {
+    if (bmDC == nullptr) {
         // TODO(ilya.a): Should we recreate context?
-        bmDeviceContext = CreateCompatibleDC(nullptr);
+        bmDC = CreateCompatibleDC(nullptr);
     }
 
     bmInfo.bmiHeader.biSize          = sizeof(bmInfo.bmiHeader);
@@ -99,12 +104,11 @@ Win32_ResizeDIBSection(S32 width,
     bmInfo.bmiHeader.biClrUsed       = 0;
     bmInfo.bmiHeader.biClrImportant  = 0;
 
-
-    // TODO(i.akkuzin): Handle error
+    // TODO(ilya.a): Handle error
     // HDC deviceContext = GetCompatibleDC(nullptr); // Asking device for input.
 
     bmHandle = CreateDIBSection(
-        bmDeviceContext,
+        bmDC,
         &bmInfo,
         DIB_RGB_COLORS,
         &bmBuffer,
@@ -114,10 +118,10 @@ Win32_ResizeDIBSection(S32 width,
 }
 
 
-InternalFunc CompileTime void
+constexpr InternalFunc void
 GetRectSize(In  const RECT *r,
-            Out S32        *w,
-            Out S32        *h) NoThrows
+            Out s32        *w,
+            Out s32        *h) noexcept
 {
     *w = r->right  - r->left;
     *h = r->bottom - r->top;
@@ -126,9 +130,9 @@ GetRectSize(In  const RECT *r,
 
 LRESULT CALLBACK
 Win32_MainWindowProc(HWND window,
-           UINT message,
-           WPARAM wParam,
-           LPARAM lParam)
+                     UINT message,
+                     WPARAM wParam,
+                     LPARAM lParam)
 {
     LRESULT result = 0;
 
@@ -142,7 +146,7 @@ Win32_MainWindowProc(HWND window,
             RECT r = {0};
             GetClientRect(window, &r);
 
-            S32 width = 0, height = 0;
+            s32 width = 0, height = 0;
             GetRectSize(&r, &width, &height);
 
             Win32_ResizeDIBSection(width, height);
@@ -153,11 +157,11 @@ Win32_MainWindowProc(HWND window,
             HDC deviceContext = BeginPaint(window, &paint);
 
             if (deviceContext == nullptr) {
-                // TODO(i.akkuzin): Handle error
+                // TODO(ilya.a): Handle error
             } else {
-                S32 x = paint.rcPaint.left;
-                S32 y = paint.rcPaint.top;
-                S32 width = 0, height = 0;
+                s32 x = paint.rcPaint.left;
+                s32 y = paint.rcPaint.top;
+                s32 width = 0, height = 0;
                 GetRectSize(&(paint.rcPaint), &width, &height);
 
                 Win32_UpdateWindow(deviceContext, x, y, width, height);
@@ -169,12 +173,12 @@ Win32_MainWindowProc(HWND window,
             EndPaint(window, &paint);
         } break;
         case WM_CLOSE: {
-            // TODO(i.akkuzin): Ask for closing?
+            // TODO(ilya.a): Ask for closing?
             OutputDebugString("WM_CLOSE\n");
             shouldStop = true;
         } break;
         case WM_DESTROY: {
-            // TODO(i.akkuzin): Casey says that we maybe should recreate
+            // TODO(ilya.a): Casey says that we maybe should recreate
             // window later?
             OutputDebugString("WM_DESTROY\n");
             // PostQuitMessage(0);

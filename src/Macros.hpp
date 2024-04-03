@@ -11,12 +11,11 @@
 #define BRK_MACROS_HPP_INCLUDED
 
 #define InternalFunc static
-#define GlobalVar    static
-#define PersistVar   static
+#define GlobalVar static
+#define PersistVar static
+#define ClassMethod static
 
-#define CompileTime constexpr
-#define NoThrows    noexcept
-#define Throws
+#define ConstMethod const
 
 #define Out
 #define In

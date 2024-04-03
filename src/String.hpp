@@ -11,7 +11,20 @@
 #define BKR_STRING_HPP_INCLUDED
 
 #include "Types.hpp"
+#include "Macros.hpp"
 
-Size CStr_GetLength(CStr s) noexcept;
+
+namespace CStr {
+
+    constexpr usize GetLength(cstr s) noexcept
+    {
+    	usize size = 0;
+    	while (s[size] != '\0') {
+    		size++;
+    	}
+    	return size;
+    }
+
+}  // namespace CStr
 
 #endif  // BKR_STRING_HPP_INCLUDED
