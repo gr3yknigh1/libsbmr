@@ -23,15 +23,27 @@
 #include "String.hpp"
 #include "Macros.hpp"
 
-GlobalVar bool       shouldStop = false;
-GlobalVar BITMAPINFO bmInfo     = {0};
-GlobalVar void *     bmBuffer   = nullptr;
 
-GlobalVar U8         bmBPP      = 4;
-GlobalVar U32        bmOffsetX  = 0;
-GlobalVar U32        bmOffsetY  = 0;
-GlobalVar U32        bmWidth    = 0;
-GlobalVar U32        bmHeight   = 0;
+/*
+ * RAII implementation of device context wrapper.
+ *
+ * Aquires device context and frees it on destruction.
+ */
+struct ScopedDC {
+    HDC Handle;
+
+    ScopedDC(HWND window) noexcept 
+        : Handle(GetDC(window)), m_Window(window)
+    { }
+
+    ~ScopedDC() noexcept
+    {
+        ReleaseDC(this->m_Window, this->Handle);
+    }
+
+private:
+    HWND m_Window;
+};
 
 
 struct Rect {
@@ -60,8 +72,16 @@ struct Color4 {
     constexpr Color4(U8 r = 0, U8 g = 0, U8 b = 0, U8 a = 0) noexcept
         : R(r), G(g), B(b), A(a)
     { }
-};
 
+    constexpr Color4 
+    operator+(const Color4 &other) const noexcept
+    {
+        return Color4(R+other.R, 
+                      G+other.G, 
+                      B+other.B, 
+                      A+other.A);
+    }
+};
 
 static_assert(sizeof(Color4) == sizeof(U32));
 
@@ -72,31 +92,38 @@ GlobalVar const Color4 COLOR_BLUE  = Color4(0, 0, MAX_U8, 0);
 GlobalVar const Color4 COLOR_BLACK = Color4(0, 0, 0, 0);
 
 
-/*
- * RAII implementation of device context wrapper.
- *
- * Aquires device context and frees it on destruction.
- */
-struct ScopedDC {
-    HDC Handle;
+GlobalVar bool       shouldStop = false;
+GlobalVar BITMAPINFO bmInfo     = {0};
+GlobalVar void *     bmBuffer   = nullptr;
+GlobalVar U8         bmBPP      = 4;
+GlobalVar U32        bmOffsetX  = 0;
+GlobalVar U32        bmOffsetY  = 0;
+GlobalVar U32        bmWidth    = 0;
+GlobalVar U32        bmHeight   = 0;
 
-    ScopedDC(HWND window) noexcept 
-        : Handle(GetDC(window)), m_Window(window)
-    { }
 
-    ~ScopedDC() noexcept
-    {
-        ReleaseDC(this->m_Window, this->Handle);
-    }
+GlobalVar struct {
+    Rect Rect; 
+    Color4 Color;
 
-private:
-    HWND m_Window;
-};
+    struct {
+        bool LeftPressed;
+        bool RightPressed;
+    } Input;
+} player;
+
+
+#define PLAYER_INIT_X 20
+#define PLAYER_INIT_Y 60
+#define PLAYER_WIDTH 160
+#define PLAYER_HEIGHT 80
+#define PLAYER_COLOR (COLOR_RED + COLOR_BLUE)
+#define PLAYER_SPEED 10
 
 
 #define Win32_TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
 
-void 
+InternalFunc void 
 BM_FillWith(Color4 color) noexcept 
 {
     for (U32 i = 0; i < bmWidth * bmHeight; ++i) 
@@ -258,6 +285,30 @@ Win32_MainWindowProc(HWND   window,
 
             EndPaint(window, &paint);
         } break;
+        case WM_KEYDOWN: {
+            switch (wParam) {
+                case VK_LEFT: {
+                    player.Input.LeftPressed = true;
+                } break;
+                case VK_RIGHT: {
+                    player.Input.RightPressed = true;
+                } break;
+                default: {
+                } break;
+            }
+        } break;
+        case WM_KEYUP: {
+            switch (wParam) {
+                case VK_LEFT: {
+                    player.Input.LeftPressed = false;
+                } break;
+                case VK_RIGHT: {
+                    player.Input.RightPressed = false;
+                } break;
+                default: {
+                } break;
+            }
+        } break;
         case WM_CLOSE: {
             // TODO(ilya.a): Ask for closing?
             OutputDebugString("WM_CLOSE\n");
@@ -325,6 +376,12 @@ WinMain(HINSTANCE instance,
     U32 xOffset = 0;
     U32 yOffset = 0;
 
+    player.Rect.X = PLAYER_INIT_X;
+    player.Rect.Y = PLAYER_INIT_Y;
+    player.Rect.Width = PLAYER_WIDTH;
+    player.Rect.Height = PLAYER_HEIGHT;
+    player.Color = PLAYER_COLOR;
+
     while (!shouldStop) {
 
         MSG message = {};
@@ -338,9 +395,18 @@ WinMain(HINSTANCE instance,
             DispatchMessageA(&message);
         }
 
+
+        if (player.Input.LeftPressed) {
+            player.Rect.X -= PLAYER_SPEED;
+        }
+
+        if (player.Input.RightPressed) {
+            player.Rect.X += PLAYER_SPEED;
+        }
+
         BM_FillWith(COLOR_WHITE);
         BM_RenderGradient(xOffset, yOffset);
-        BM_RenderRect(Rect(100 + xOffset, 100, 200, 200), COLOR_BLACK);
+        BM_RenderRect(player.Rect, player.Color);
 
         {
             auto dc = ScopedDC(window);
