@@ -19,11 +19,11 @@ public:
         : m_Data(nullptr), m_Size(0)
     { }
 
-    constexpr explicit StringView(const char *s) noexcept
-        : m_Data(s), m_Size(CStr::GetLength(s))
+    constexpr explicit StringView(CStr s) noexcept
+        : m_Data(s), m_Size(CStr_GetLength(s))
     { }
 
-    constexpr explicit StringView(const void *s, usize size) noexcept
+    constexpr explicit StringView(const void *s, Size size) noexcept
         : m_Data(s), m_Size(size)
     { }
 
@@ -47,10 +47,10 @@ public:
         return *this;
     }
 
-    constexpr const void * GetData() const noexcept { return m_Data; }
-    constexpr        usize GetSize() const noexcept { return m_Size; }
+    constexpr const void * GetData() ConstMethod noexcept { return m_Data; }
+    constexpr         Size GetSize() ConstMethod noexcept { return m_Size; }
 
 private:
     const void * m_Data;
-    usize        m_Size;
+    Size         m_Size;
 };

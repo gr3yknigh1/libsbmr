@@ -14,17 +14,16 @@
 #include "Macros.hpp"
 
 
-namespace CStr {
+constexpr Size 
+CStr_GetLength(CStr s) noexcept
+{
+	Size size = 0;
+	while (s[size] != '\0')
+	{
+		size++;
+	}
+	return size;
+}
 
-    constexpr usize GetLength(cstr s) noexcept
-    {
-    	usize size = 0;
-    	while (s[size] != '\0') {
-    		size++;
-    	}
-    	return size;
-    }
-
-}  // namespace CStr
 
 #endif  // BKR_STRING_HPP_INCLUDED

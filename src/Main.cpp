@@ -25,44 +25,80 @@
 
 GlobalVar bool       shouldStop = false;
 GlobalVar BITMAPINFO bmInfo     = {0};
-GlobalVar HBITMAP    bmHandle   = nullptr;
 GlobalVar void *     bmBuffer   = nullptr;
-GlobalVar HDC        bmDC       = nullptr;
 
-#define Win32_TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr::GetLength((MSG)))
+GlobalVar U8         bmBPP      = 4;
+GlobalVar U32        bmOffsetX  = 0;
+GlobalVar U32        bmOffsetY  = 0;
+GlobalVar U32        bmWidth    = 0;
+GlobalVar U32        bmHeight   = 0;
+
+
+struct Color4 {
+    U8 R;
+    U8 G;
+    U8 B;
+    U8 A;
+
+    constexpr Color4(U8 r = 0, U8 g = 0, U8 b = 0, U8 a = 0) noexcept
+        : R(r), G(g), B(b), A(a)
+    { }
+};
+
+
+static_assert(sizeof(Color4) == sizeof(U32));
+
+GlobalVar const Color4 COLOR_WHITE = Color4(MAX_U8, MAX_U8, MAX_U8, MAX_U8);
+GlobalVar const Color4 COLOR_RED   = Color4(MAX_U8, 0, 0, 0);
+GlobalVar const Color4 COLOR_GREEN = Color4(0, MAX_U8, 0, 0);
+GlobalVar const Color4 COLOR_BLUE  = Color4(0, 0, MAX_U8, 0);
+GlobalVar const Color4 COLOR_BLACK = Color4(0, 0, 0, 0);
+
+
+void 
+BM_FillWith(Color4 color) noexcept 
+{
+    for (U32 i = 0; i < bmWidth * bmHeight; ++i) 
+    {
+        ((Color4 *)bmBuffer)[i] = color;
+    }
+}
+
+
+#define Win32_TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
+
 
 InternalFunc void
 Win32_UpdateWindow(HDC deviceContext,
-                   s32 x,
-                   s32 y,
-                   s32 width,
-                   s32 height) noexcept
+                   S32 windowOffsetX,
+                   S32 windowOffsetY,
+                   S32 windowWidth,
+                   S32 windowHeight) noexcept
 {
-    /*
-     * int StretchDIBits(
-     *   [in] HDC              hdc,
-     *   [in] int              xDest,
-     *   [in] int              yDest,
-     *   [in] int              DestWidth,
-     *   [in] int              DestHeight,
-     *   [in] int              xSrc,
-     *   [in] int              ySrc,
-     *   [in] int              SrcWidth,
-     *   [in] int              SrcHeight,
-     *   [in] const VOID       *lpBits,
-     *   [in] const BITMAPINFO *lpbmi,
-     *   [in] UINT             iUsage,       palletize (DIB_PAL_COLORS) or rgb (DIB_RGB_COLORS)
-     *   [in] DWORD            rop           Raster-operation code: (lookup at msdn)
-     * );
-     */
+    BM_FillWith(COLOR_BLACK);
+
+    Size pitch = bmWidth * bmBPP;
+    U8 * row = (U8 *) bmBuffer;
+
+    for (U32 y = 0; y < bmHeight; ++y) 
+    {
+        Color4 * pixel = (Color4 *)row;
+
+        for (U32 x = 0; x < bmWidth; ++x) 
+        {
+            *pixel = Color4(x, y, 0);
+            ++pixel;
+        }
+        row += pitch;
+    }
+
+
     StretchDIBits(
         deviceContext,
-        x, y, width, height, // Copying from buffer with exactly the same
-        x, y, width, height, // offset and size, which is our dest.
-        bmBuffer,
-        &bmInfo,
-        DIB_RGB_COLORS,
-        SRCCOPY
+        bmOffsetX,     bmOffsetY,     bmWidth,     bmHeight,
+        windowOffsetX, windowOffsetY, windowWidth, windowHeight,
+        bmBuffer, &bmInfo,
+        DIB_RGB_COLORS, SRCCOPY
     );
 }
 
@@ -70,31 +106,28 @@ Win32_UpdateWindow(HDC deviceContext,
  * DIB: Device Independent Bitmap
  */
 InternalFunc void
-Win32_ResizeDIBSection(s32 width,
-                       s32 height) noexcept
+Win32_ResizeDIBSection(S32 width,
+                       S32 height) noexcept
 {
-    /* HBITMAP CreateDIBSection(
-     *   [in]  HDC              hdc,
-     *   [in]  const BITMAPINFO *pbmi,
-     *   [in]  UINT             usage,
-     *   [out] VOID             **ppvBits,
-     *   [in]  HANDLE           hSection,
-     *   [in]  DWORD            offset
-     * );
-     */
-
-    if (bmHandle != nullptr) {
-        DeleteObject(bmHandle);
+    if (bmBuffer != nullptr && VirtualFree(bmBuffer, 0, MEM_RELEASE) == 0) {
+        //                                              ^^^^^^^^^^^
+        // NOTE(ilya.a): Might be more reasonable to use MEM_DECOMMIT instead for 
+        // MEM_RELEASE. Because in that case it's will be keep buffer around, until
+        // we use it again.
+        // P.S. Also will be good to try protect buffer after deallocating or other
+        // stuff.
+        //
+        // TODO(ilya.a): 
+        //     - [ ] Checkout how it works.
+        //     - [ ] Handle allocation error.
+        OutputDebugString("Failed to free backbuffer memory!\n");
     }
-
-    if (bmDC == nullptr) {
-        // TODO(ilya.a): Should we recreate context?
-        bmDC = CreateCompatibleDC(nullptr);
-    }
+    bmWidth = width;
+    bmHeight = height;
 
     bmInfo.bmiHeader.biSize          = sizeof(bmInfo.bmiHeader);
-    bmInfo.bmiHeader.biWidth         = width;
-    bmInfo.bmiHeader.biHeight        = height;
+    bmInfo.bmiHeader.biWidth         = bmWidth;
+    bmInfo.bmiHeader.biHeight        = bmHeight;
     bmInfo.bmiHeader.biPlanes        = 1;
     bmInfo.bmiHeader.biBitCount      = 32;      // NOTE: Align to WORD
     bmInfo.bmiHeader.biCompression   = BI_RGB;
@@ -104,33 +137,28 @@ Win32_ResizeDIBSection(s32 width,
     bmInfo.bmiHeader.biClrUsed       = 0;
     bmInfo.bmiHeader.biClrImportant  = 0;
 
-    // TODO(ilya.a): Handle error
-    // HDC deviceContext = GetCompatibleDC(nullptr); // Asking device for input.
+    Size bmSize = bmWidth * bmHeight * bmBPP;
+    bmBuffer = VirtualAlloc(nullptr, bmSize, MEM_COMMIT, PAGE_READWRITE);
 
-    bmHandle = CreateDIBSection(
-        bmDC,
-        &bmInfo,
-        DIB_RGB_COLORS,
-        &bmBuffer,
-        nullptr, 0);
-
-    // ReleaseDC(0, deviceContext);
+    if (bmBuffer == nullptr) {
+        // TODO:(ilya.a): Check for errors.
+        OutputDebugString("Failed to allocate memory for backbuffer!\n");
+    }
 }
 
 
 constexpr InternalFunc void
 GetRectSize(In  const RECT *r,
-            Out s32        *w,
-            Out s32        *h) noexcept
+            Out S32        *w,
+            Out S32        *h) noexcept
 {
     *w = r->right  - r->left;
     *h = r->bottom - r->top;
 }
 
-
 LRESULT CALLBACK
-Win32_MainWindowProc(HWND window,
-                     UINT message,
+Win32_MainWindowProc(HWND   window,
+                     UINT   message,
                      WPARAM wParam,
                      LPARAM lParam)
 {
@@ -146,7 +174,7 @@ Win32_MainWindowProc(HWND window,
             RECT r = {0};
             GetClientRect(window, &r);
 
-            s32 width = 0, height = 0;
+            S32 width = 0, height = 0;
             GetRectSize(&r, &width, &height);
 
             Win32_ResizeDIBSection(width, height);
@@ -159,15 +187,15 @@ Win32_MainWindowProc(HWND window,
             if (deviceContext == nullptr) {
                 // TODO(ilya.a): Handle error
             } else {
-                s32 x = paint.rcPaint.left;
-                s32 y = paint.rcPaint.top;
-                s32 width = 0, height = 0;
+                S32 x = paint.rcPaint.left;
+                S32 y = paint.rcPaint.top;
+                S32 width = 0, height = 0;
                 GetRectSize(&(paint.rcPaint), &width, &height);
 
                 Win32_UpdateWindow(deviceContext, x, y, width, height);
 
-                PatBlt(deviceContext, x, y, width, height, WHITENESS);
-                Win32_TextOutA_CStr(deviceContext, 0, 0, "Hello world!");
+                // PatBlt(deviceContext, x, y, width, height, WHITENESS);
+                // Win32_TextOutA_CStr(deviceContext, 0, 0, "Hello world!");
             }
 
             EndPaint(window, &paint);
