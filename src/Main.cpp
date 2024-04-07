@@ -34,10 +34,27 @@ GlobalVar U32        bmWidth    = 0;
 GlobalVar U32        bmHeight   = 0;
 
 
+struct Rect {
+    U16 X;
+    U16 Y;
+    U16 Width;
+    U16 Height;
+
+    constexpr Rect(U16 x = 0, U16 y = 0, U16 width = 0, U16 height = 0) noexcept 
+        : X(x), Y(y), Width(width), Height(height)
+    { }
+
+    constexpr bool IsInside(U16 x, U16 y) const noexcept
+    {
+        return x >= X && x <= X + Width && y >= Y && y <= Y + Height;
+    }
+};
+
+
 struct Color4 {
-    U8 R;
-    U8 G;
     U8 B;
+    U8 G;
+    U8 R;
     U8 A;
 
     constexpr Color4(U8 r = 0, U8 g = 0, U8 b = 0, U8 a = 0) noexcept
@@ -109,14 +126,35 @@ BM_RenderGradient(U32 xOffset, U32 yOffset) noexcept
 
 
 InternalFunc void
+BM_RenderRect(Rect r, Color4 c) noexcept {
+    Size pitch = bmWidth * bmBPP;
+    U8 * row = (U8 *) bmBuffer;
+
+    for (U32 y = 0; y < bmHeight; ++y) 
+    {
+        Color4 * pixel = (Color4 *)row;
+
+        for (U32 x = 0; x < bmWidth; ++x) 
+        {
+            if (r.IsInside(x, y)) {
+                *pixel = c;
+            }
+
+            ++pixel;
+        }
+
+        row += pitch;
+    }
+}
+
+
+InternalFunc void
 Win32_UpdateWindow(HDC deviceContext,
                    S32 windowOffsetX,
                    S32 windowOffsetY,
                    S32 windowWidth,
                    S32 windowHeight) noexcept
 {
-    // BM_FillWith(COLOR_BLACK);
-
     StretchDIBits(
         deviceContext,
         bmOffsetX,     bmOffsetY,     bmWidth,     bmHeight,
@@ -300,7 +338,9 @@ WinMain(HINSTANCE instance,
             DispatchMessageA(&message);
         }
 
+        BM_FillWith(COLOR_WHITE);
         BM_RenderGradient(xOffset, yOffset);
+        BM_RenderRect(Rect(100 + xOffset, 100, 200, 200), COLOR_BLACK);
 
         {
             auto dc = ScopedDC(window);
