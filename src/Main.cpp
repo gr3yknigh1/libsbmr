@@ -55,6 +55,30 @@ GlobalVar const Color4 COLOR_BLUE  = Color4(0, 0, MAX_U8, 0);
 GlobalVar const Color4 COLOR_BLACK = Color4(0, 0, 0, 0);
 
 
+/*
+ * RAII implementation of device context wrapper.
+ *
+ * Aquires device context and frees it on destruction.
+ */
+struct ScopedDC {
+    HDC Handle;
+
+    ScopedDC(HWND window) noexcept 
+        : Handle(GetDC(window)), m_Window(window)
+    { }
+
+    ~ScopedDC() noexcept
+    {
+        ReleaseDC(this->m_Window, this->Handle);
+    }
+
+private:
+    HWND m_Window;
+};
+
+
+#define Win32_TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
+
 void 
 BM_FillWith(Color4 color) noexcept 
 {
@@ -64,19 +88,9 @@ BM_FillWith(Color4 color) noexcept
     }
 }
 
-
-#define Win32_TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
-
-
 InternalFunc void
-Win32_UpdateWindow(HDC deviceContext,
-                   S32 windowOffsetX,
-                   S32 windowOffsetY,
-                   S32 windowWidth,
-                   S32 windowHeight) noexcept
-{
-    BM_FillWith(COLOR_BLACK);
-
+BM_RenderGradient(U32 xOffset, U32 yOffset) noexcept
+{ 
     Size pitch = bmWidth * bmBPP;
     U8 * row = (U8 *) bmBuffer;
 
@@ -86,12 +100,22 @@ Win32_UpdateWindow(HDC deviceContext,
 
         for (U32 x = 0; x < bmWidth; ++x) 
         {
-            *pixel = Color4(x, y, 0);
+            *pixel = Color4(x + xOffset, y + yOffset, 0);
             ++pixel;
         }
         row += pitch;
     }
+}
 
+
+InternalFunc void
+Win32_UpdateWindow(HDC deviceContext,
+                   S32 windowOffsetX,
+                   S32 windowOffsetY,
+                   S32 windowWidth,
+                   S32 windowHeight) noexcept
+{
+    // BM_FillWith(COLOR_BLACK);
 
     StretchDIBits(
         deviceContext,
@@ -191,11 +215,7 @@ Win32_MainWindowProc(HWND   window,
                 S32 y = paint.rcPaint.top;
                 S32 width = 0, height = 0;
                 GetRectSize(&(paint.rcPaint), &width, &height);
-
                 Win32_UpdateWindow(deviceContext, x, y, width, height);
-
-                // PatBlt(deviceContext, x, y, width, height, WHITENESS);
-                // Win32_TextOutA_CStr(deviceContext, 0, 0, "Hello world!");
             }
 
             EndPaint(window, &paint);
@@ -264,11 +284,39 @@ WinMain(HINSTANCE instance,
 
     ShowWindow(window, showMode);
 
-    MSG message = {};
+    U32 xOffset = 0;
+    U32 yOffset = 0;
 
-    while (!shouldStop && GetMessageA(&message, nullptr, 0, 0) > 0) {
-        TranslateMessage(&message);
-        DispatchMessageA(&message);
+    while (!shouldStop) {
+
+        MSG message = {};
+        while (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE)) {
+            if (message.message == WM_QUIT) {
+                // NOTE(ilya.a): Make sure that we will quit the mainloop.
+                shouldStop = true;
+            }
+
+            TranslateMessage(&message);
+            DispatchMessageA(&message);
+        }
+
+        BM_RenderGradient(xOffset, yOffset);
+
+        {
+            auto dc = ScopedDC(window);
+
+            RECT windowRect;
+            GetClientRect(window, &windowRect);
+            S32 x = windowRect.left;
+            S32 y = windowRect.top;
+            S32 width = 0, height = 0;
+            GetRectSize(&windowRect, &width, &height);
+
+            Win32_UpdateWindow(dc.Handle, x, y, width, height);
+        }
+
+        xOffset++;
+        yOffset++;
     }
 
     return 0;
