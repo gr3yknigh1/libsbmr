@@ -18,6 +18,7 @@
 #include "Types.hpp"
 #include "String.hpp"
 #include "Macros.hpp"
+#include "Win32/Keys.hpp"
 
 
 /*
@@ -42,6 +43,27 @@ private:
 };
 
 
+// TODO: Scope `T` type to numeric only.
+// template <typename T>
+constexpr S32
+Abs(S32 x) noexcept
+{
+    return x * ((x > 0) - (x < 0));
+}
+
+
+// TODO: Scope `T` type to numeric only.
+// template <typename T>
+struct Vec3i {
+    S32 X;
+    S32 Y;
+
+    constexpr Vec3i(S32 x = 0, S32 y = 0) noexcept 
+        : X(x), Y(y)
+    { }
+};
+
+
 struct Rect {
     U16 X;
     U16 Y;
@@ -52,17 +74,17 @@ struct Rect {
         : X(x), Y(y), Width(width), Height(height)
     { }
 
-    constexpr bool 
-    IsInside(U16 x, U16 y) const noexcept
+    constexpr bool IsInside(U16 x, U16 y) const noexcept
     {
         return x >= X && x <= X + Width && y >= Y && y <= Y + Height;
     }
 
-    constexpr bool 
-    IsOverlapping(const Rect &r) const noexcept
+    constexpr bool IsOverlapping(const Rect &r) const noexcept
     {
-        // TODO(ilya.a): Make more QA.
-        return IsInside(r.X, r.Y) || IsInside(r.X + r.Width, r.Y + r.Height);
+        return IsInside(r.X + 0      , r.Y + 0) 
+            || IsInside(r.X + r.Width, r.Y + r.Height)
+            || IsInside(r.X + r.Width, r.Y + 0)
+            || IsInside(r.X + 0      , r.Y + r.Height);
     }
 };
 
@@ -77,8 +99,7 @@ struct Color4 {
         : R(r), G(g), B(b), A(a)
     { }
 
-    constexpr Color4 
-    operator+(const Color4 &other) const noexcept
+    constexpr Color4 operator+(const Color4 &other) const noexcept
     {
         return Color4(R+other.R, 
                       G+other.G, 
@@ -87,13 +108,16 @@ struct Color4 {
     }
 };
 
+
 static_assert(sizeof(Color4) == sizeof(U32));
 
-GlobalVar const Color4 COLOR_WHITE = Color4(MAX_U8, MAX_U8, MAX_U8, MAX_U8);
-GlobalVar const Color4 COLOR_RED   = Color4(MAX_U8, 0, 0, 0);
-GlobalVar const Color4 COLOR_GREEN = Color4(0, MAX_U8, 0, 0);
-GlobalVar const Color4 COLOR_BLUE  = Color4(0, 0, MAX_U8, 0);
-GlobalVar const Color4 COLOR_BLACK = Color4(0, 0, 0, 0);
+GlobalVar constexpr Color4 COLOR_WHITE = Color4(MAX_U8, MAX_U8, MAX_U8, MAX_U8);
+GlobalVar constexpr Color4 COLOR_RED   = Color4(MAX_U8, 0, 0, 0);
+GlobalVar constexpr Color4 COLOR_GREEN = Color4(0, MAX_U8, 0, 0);
+GlobalVar constexpr Color4 COLOR_BLUE  = Color4(0, 0, MAX_U8, 0);
+GlobalVar constexpr Color4 COLOR_BLACK = Color4(0, 0, 0, 0);
+
+GlobalVar constexpr Color4 COLOR_YELLOW = COLOR_GREEN + COLOR_RED;
 
 
 GlobalVar bool       shouldStop = false;
@@ -116,8 +140,14 @@ GlobalVar struct {
     } Input;
 } player;
 
+GlobalVar struct {
+    Rect Rect;
+    Color4 Color;
+    Vec3i Input;
+} box;
 
-#define PLAYER_INIT_X 20
+
+#define PLAYER_INIT_X 100
 #define PLAYER_INIT_Y 60
 #define PLAYER_WIDTH 160
 #define PLAYER_HEIGHT 80
@@ -297,6 +327,18 @@ Win32_MainWindowProc(HWND   window,
                 case VK_RIGHT: {
                     player.Input.RightPressed = true;
                 } break;
+                case KEY_A: {
+                    box.Input.X = -1;
+                } break;
+                case KEY_D: {
+                    box.Input.X = +1;
+                } break;
+                case KEY_S: {
+                    box.Input.Y = -1;
+                } break;
+                case KEY_W: {
+                    box.Input.Y = +1;
+                } break;
                 default: {
                 } break;
             }
@@ -308,6 +350,14 @@ Win32_MainWindowProc(HWND   window,
                 } break;
                 case VK_RIGHT: {
                     player.Input.RightPressed = false;
+                } break;
+                case KEY_A:
+                case KEY_D: {
+                    box.Input.X = 0;
+                } break;
+                case KEY_W:
+                case KEY_S: {
+                    box.Input.Y = 0;
                 } break;
                 default: {
                 } break;
@@ -386,6 +436,9 @@ WinMain(HINSTANCE instance,
     player.Rect.Height = PLAYER_HEIGHT;
     player.Color = PLAYER_COLOR;
 
+    box.Rect = Rect(0, 0, 100, 100);
+    box.Color = COLOR_RED;
+
     while (!shouldStop) {
 
         MSG message = {};
@@ -408,9 +461,19 @@ WinMain(HINSTANCE instance,
             player.Rect.X += PLAYER_SPEED;
         }
 
+        box.Rect.X += PLAYER_SPEED * box.Input.X;
+        box.Rect.Y += PLAYER_SPEED * box.Input.Y;
+
+        if (player.Rect.IsOverlapping(box.Rect)) {
+            player.Color = COLOR_YELLOW;
+        } else {
+            player.Color = PLAYER_COLOR;
+        }
+
         BM_FillWith(COLOR_WHITE);
         BM_RenderGradient(xOffset, yOffset);
         BM_RenderRect(player.Rect, player.Color);
+        BM_RenderRect(box.Rect, box.Color);
 
         {
             auto dc = ScopedDC(window);
