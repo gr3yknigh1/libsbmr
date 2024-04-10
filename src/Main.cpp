@@ -19,6 +19,22 @@
 #include "String.hpp"
 #include "Macros.hpp"
 #include "Win32/Keys.hpp"
+#include "Lin.hpp"
+#include "Geom.hpp"
+#include "Coloring.hpp"
+
+
+/*
+ * Extracts width and height of Win32's `RECT` type.
+ */
+constexpr InternalFunc void
+GetRectSize(In  const RECT *r,
+            Out S32        *w,
+            Out S32        *h) noexcept
+{
+    *w = r->right  - r->left;
+    *h = r->bottom - r->top;
+}
 
 
 /*
@@ -43,91 +59,122 @@ private:
 };
 
 
-// TODO: Scope `T` type to numeric only.
-// template <typename T>
-constexpr S32
-Abs(S32 x) noexcept
+
+enum class RenderCommandType {
+    NOP = 0,
+    FILL = 1,
+    RECT = 10,
+};
+
+
+struct RenderCommand {
+    RenderCommandType Type;
+    void * Payload;
+
+    constexpr 
+    RenderCommand(RenderCommandType type    = RenderCommandType::NOP, 
+                  void *            payload = nullptr) noexcept
+        : Type(type), Payload(payload)
+    { }
+};
+
+
+#define BMR_RENDER_COMMAND_CAPACITY 64
+
+/*
+ * Bitmap Renderer.
+ */
+GlobalVar struct {
+    Color4 ClearColor;
+    RenderCommand *Queue;
+    U8 BPP;                 // Bytes Per Pixel
+    U64 XOffset;
+    U64 YOffset;
+    struct {
+        void *Buffer;
+        U64 Width;
+        U64 Height;
+    } Pixels;
+    BITMAPINFO Info;
+    HWND Window;
+} BMR;
+
+
+InternalFunc void
+BMR_Init(U8 bpp = 4) noexcept
 {
-    return x * ((x > 0) - (x < 0));
+    BMR.ClearColor = COLOR_BLACK;
+
+    BMR.Queue = (RenderCommand *)VirtualAlloc(
+        nullptr, BMR_RENDER_COMMAND_CAPACITY, MEM_COMMIT, PAGE_READWRITE);
+
+    BMR.BPP = bpp;
+    BMR.XOffset = 0;
+    BMR.YOffset = 0;
+
+    BMR.Pixels.Buffer = nullptr;
+    BMR.Pixels.Width = 0;
+    BMR.Pixels.Height = 0;
+
+    // TODO: Move pixel 
+    // BMR.Pixels;
+    // BMR.Info;
 }
 
 
-// TODO: Scope `T` type to numeric only.
-// template <typename T>
-struct Vec3i {
-    S32 X;
-    S32 Y;
-
-    constexpr Vec3i(S32 x = 0, S32 y = 0) noexcept 
-        : X(x), Y(y)
-    { }
-};
+InternalFunc void
+BMR_Destroy() noexcept
+{ }
 
 
-struct Rect {
-    U16 X;
-    U16 Y;
-    U16 Width;
-    U16 Height;
+InternalFunc void
+BMR_BeginDrawing(HWND window) noexcept
+{
+    BMR.Window = window;
+}
 
-    constexpr Rect(U16 x = 0, U16 y = 0, U16 width = 0, U16 height = 0) noexcept 
-        : X(x), Y(y), Width(width), Height(height)
-    { }
 
-    constexpr bool IsInside(U16 x, U16 y) const noexcept
+InternalFunc void
+Win32_UpdateWindow(HDC deviceContext,
+                   S32 windowXOffset,
+                   S32 windowYOffset,
+                   S32 windowWidth,
+                   S32 windowHeight) noexcept
+{
+    StretchDIBits(
+        deviceContext,
+        BMR.XOffset,   BMR.YOffset,   BMR.Pixels.Width,   BMR.Pixels.Height,
+        windowXOffset, windowYOffset, windowWidth, windowHeight,
+        BMR.Pixels.Buffer, &BMR.Info,
+        DIB_RGB_COLORS, SRCCOPY
+    );
+}
+
+
+InternalFunc void
+BMR_EndDrawing() noexcept
+{
+    for (U32 i = 0; i < BMR.Pixels.Width * BMR.Pixels.Height; ++i) 
     {
-        return x >= X && x <= X + Width && y >= Y && y <= Y + Height;
+        ((Color4 *)BMR.Pixels.Buffer)[i] = BMR.ClearColor;
     }
 
-    constexpr bool IsOverlapping(const Rect &r) const noexcept
     {
-        return IsInside(r.X + 0      , r.Y + 0) 
-            || IsInside(r.X + r.Width, r.Y + r.Height)
-            || IsInside(r.X + r.Width, r.Y + 0)
-            || IsInside(r.X + 0      , r.Y + r.Height);
+        auto dc = ScopedDC(BMR.Window);
+
+        RECT windowRect;
+        GetClientRect(BMR.Window, &windowRect);
+        S32 x = windowRect.left;
+        S32 y = windowRect.top;
+        S32 width = 0, height = 0;
+        GetRectSize(&windowRect, &width, &height);
+
+        Win32_UpdateWindow(dc.Handle, x, y, width, height);
     }
-};
-
-
-struct Color4 {
-    U8 B;
-    U8 G;
-    U8 R;
-    U8 A;
-
-    constexpr Color4(U8 r = 0, U8 g = 0, U8 b = 0, U8 a = 0) noexcept
-        : R(r), G(g), B(b), A(a)
-    { }
-
-    constexpr Color4 operator+(const Color4 &other) const noexcept
-    {
-        return Color4(R+other.R, 
-                      G+other.G, 
-                      B+other.B, 
-                      A+other.A);
-    }
-};
-
-
-static_assert(sizeof(Color4) == sizeof(U32));
-
-GlobalVar constexpr Color4 COLOR_WHITE = Color4(MAX_U8, MAX_U8, MAX_U8, MAX_U8);
-GlobalVar constexpr Color4 COLOR_RED   = Color4(MAX_U8, 0, 0, 0);
-GlobalVar constexpr Color4 COLOR_GREEN = Color4(0, MAX_U8, 0, 0);
-GlobalVar constexpr Color4 COLOR_BLUE  = Color4(0, 0, MAX_U8, 0);
-GlobalVar constexpr Color4 COLOR_BLACK = Color4(0, 0, 0, 0);
-
-GlobalVar constexpr Color4 COLOR_YELLOW = COLOR_GREEN + COLOR_RED;
+}
 
 
 GlobalVar bool       shouldStop = false;
-GlobalVar BITMAPINFO bmInfo     = {0};
-GlobalVar void *     bmBuffer   = nullptr;
-GlobalVar U8         bmBPP      = 4;
-GlobalVar U32        bmOffsetX  = 0;
-GlobalVar U32        bmOffsetY  = 0;
-GlobalVar U32        bmWidth    = 0;
-GlobalVar U32        bmHeight   = 0;
 
 
 GlobalVar struct {
@@ -157,73 +204,58 @@ GlobalVar struct {
 
 #define Win32_TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
 
-InternalFunc void 
-BM_FillWith(Color4 color) noexcept 
-{
-    for (U32 i = 0; i < bmWidth * bmHeight; ++i) 
-    {
-        ((Color4 *)bmBuffer)[i] = color;
-    }
-}
+// InternalFunc void 
+// BM_FillWith(Color4 color) noexcept 
+// {
+//     for (U32 i = 0; i < bmWidth * bmHeight; ++i) 
+//     {
+//         ((Color4 *)bmBuffer)[i] = color;
+//     }
+// }
 
-InternalFunc void
-BM_RenderGradient(U32 xOffset, U32 yOffset) noexcept
-{ 
-    Size pitch = bmWidth * bmBPP;
-    U8 * row = (U8 *) bmBuffer;
-
-    for (U32 y = 0; y < bmHeight; ++y) 
-    {
-        Color4 * pixel = (Color4 *)row;
-
-        for (U32 x = 0; x < bmWidth; ++x) 
-        {
-            *pixel = Color4(x + xOffset, y + yOffset, 0);
-            ++pixel;
-        }
-        row += pitch;
-    }
-}
-
-
-InternalFunc void
-BM_RenderRect(Rect r, Color4 c) noexcept {
-    Size pitch = bmWidth * bmBPP;
-    U8 * row = (U8 *) bmBuffer;
-
-    for (U32 y = 0; y < bmHeight; ++y) 
-    {
-        Color4 * pixel = (Color4 *)row;
-
-        for (U32 x = 0; x < bmWidth; ++x) 
-        {
-            if (r.IsInside(x, y)) {
-                *pixel = c;
-            }
-
-            ++pixel;
-        }
-
-        row += pitch;
-    }
-}
+// InternalFunc void
+// BM_RenderGradient(U32 xOffset, U32 yOffset) noexcept
+// { 
+//     Size pitch = bmWidth * bmBPP;
+//     U8 * row = (U8 *) bmBuffer;
+// 
+//     for (U32 y = 0; y < bmHeight; ++y) 
+//     {
+//         Color4 * pixel = (Color4 *)row;
+// 
+//         for (U32 x = 0; x < bmWidth; ++x) 
+//         {
+//             *pixel = Color4(x + xOffset, y + yOffset, 0);
+//             ++pixel;
+//         }
+//         row += pitch;
+//     }
+// }
 
 
-InternalFunc void
-Win32_UpdateWindow(HDC deviceContext,
-                   S32 windowOffsetX,
-                   S32 windowOffsetY,
-                   S32 windowWidth,
-                   S32 windowHeight) noexcept
-{
-    StretchDIBits(
-        deviceContext,
-        bmOffsetX,     bmOffsetY,     bmWidth,     bmHeight,
-        windowOffsetX, windowOffsetY, windowWidth, windowHeight,
-        bmBuffer, &bmInfo,
-        DIB_RGB_COLORS, SRCCOPY
-    );
-}
+// InternalFunc void
+// BM_RenderRect(Rect r, Color4 c) noexcept {
+//     Size pitch = bmWidth * bmBPP;
+//     U8 * row = (U8 *) bmBuffer;
+// 
+//     for (U32 y = 0; y < bmHeight; ++y) 
+//     {
+//         Color4 * pixel = (Color4 *)row;
+// 
+//         for (U32 x = 0; x < bmWidth; ++x) 
+//         {
+//             if (r.IsInside(x, y)) {
+//                 *pixel = c;
+//             }
+// 
+//             ++pixel;
+//         }
+// 
+//         row += pitch;
+//     }
+// }
+
+
 
 /*
  * DIB: Device Independent Bitmap
@@ -232,8 +264,8 @@ InternalFunc void
 Win32_ResizeDIBSection(S32 width,
                        S32 height) noexcept
 {
-    if (bmBuffer != nullptr && VirtualFree(bmBuffer, 0, MEM_RELEASE) == 0) {
-        //                                              ^^^^^^^^^^^
+    if (BMR.Pixels.Buffer != nullptr && VirtualFree(BMR.Pixels.Buffer, 0, MEM_RELEASE) == 0) {
+        //                                                                ^^^^^^^^^^^
         // NOTE(ilya.a): Might be more reasonable to use MEM_DECOMMIT instead for 
         // MEM_RELEASE. Because in that case it's will be keep buffer around, until
         // we use it again.
@@ -245,39 +277,31 @@ Win32_ResizeDIBSection(S32 width,
         //     - [ ] Handle allocation error.
         OutputDebugString("Failed to free backbuffer memory!\n");
     }
-    bmWidth = width;
-    bmHeight = height;
+    BMR.Pixels.Width = width;
+    BMR.Pixels.Height = height;
 
-    bmInfo.bmiHeader.biSize          = sizeof(bmInfo.bmiHeader);
-    bmInfo.bmiHeader.biWidth         = bmWidth;
-    bmInfo.bmiHeader.biHeight        = bmHeight;
-    bmInfo.bmiHeader.biPlanes        = 1;
-    bmInfo.bmiHeader.biBitCount      = 32;      // NOTE: Align to WORD
-    bmInfo.bmiHeader.biCompression   = BI_RGB;
-    bmInfo.bmiHeader.biSizeImage     = 0;
-    bmInfo.bmiHeader.biXPelsPerMeter = 0;
-    bmInfo.bmiHeader.biYPelsPerMeter = 0;
-    bmInfo.bmiHeader.biClrUsed       = 0;
-    bmInfo.bmiHeader.biClrImportant  = 0;
+    BMR.Info.bmiHeader.biSize          = sizeof(BMR.Info.bmiHeader);
+    BMR.Info.bmiHeader.biWidth         = width;
+    BMR.Info.bmiHeader.biHeight        = height;
+    BMR.Info.bmiHeader.biPlanes        = 1;
+    BMR.Info.bmiHeader.biBitCount      = 32;      // NOTE: Align to WORD
+    BMR.Info.bmiHeader.biCompression   = BI_RGB;
+    BMR.Info.bmiHeader.biSizeImage     = 0;
+    BMR.Info.bmiHeader.biXPelsPerMeter = 0;
+    BMR.Info.bmiHeader.biYPelsPerMeter = 0;
+    BMR.Info.bmiHeader.biClrUsed       = 0;
+    BMR.Info.bmiHeader.biClrImportant  = 0;
 
-    Size bmSize = bmWidth * bmHeight * bmBPP;
-    bmBuffer = VirtualAlloc(nullptr, bmSize, MEM_COMMIT, PAGE_READWRITE);
+    Size bufferSize = width * height * BMR.BPP;
+    BMR.Pixels.Buffer = 
+        VirtualAlloc(nullptr, bufferSize, MEM_COMMIT, PAGE_READWRITE);
 
-    if (bmBuffer == nullptr) {
+    if (BMR.Pixels.Buffer == nullptr) {
         // TODO:(ilya.a): Check for errors.
         OutputDebugString("Failed to allocate memory for backbuffer!\n");
     }
 }
 
-
-constexpr InternalFunc void
-GetRectSize(In  const RECT *r,
-            Out S32        *w,
-            Out S32        *h) noexcept
-{
-    *w = r->right  - r->left;
-    *h = r->bottom - r->top;
-}
 
 LRESULT CALLBACK
 Win32_MainWindowProc(HWND   window,
@@ -392,6 +416,8 @@ WinMain(HINSTANCE instance,
         int showMode)
 {
 
+    BMR_Init();
+
     PersistVar LPCSTR CLASS_NAME = "Breakout";
     PersistVar LPCSTR WINDOW_TITLE = "Breakout";
 
@@ -470,27 +496,20 @@ WinMain(HINSTANCE instance,
             player.Color = PLAYER_COLOR;
         }
 
-        BM_FillWith(COLOR_WHITE);
-        BM_RenderGradient(xOffset, yOffset);
-        BM_RenderRect(player.Rect, player.Color);
-        BM_RenderRect(box.Rect, box.Color);
+        BMR_BeginDrawing(window);
 
-        {
-            auto dc = ScopedDC(window);
+        // BM_FillWith(COLOR_WHITE);
+        // BM_RenderGradient(xOffset, yOffset);
+        // BM_RenderRect(player.Rect, player.Color);
+        // BM_RenderRect(box.Rect, box.Color);
 
-            RECT windowRect;
-            GetClientRect(window, &windowRect);
-            S32 x = windowRect.left;
-            S32 y = windowRect.top;
-            S32 width = 0, height = 0;
-            GetRectSize(&windowRect, &width, &height);
-
-            Win32_UpdateWindow(dc.Handle, x, y, width, height);
-        }
+        BMR_EndDrawing();
 
         xOffset++;
         yOffset++;
     }
+
+    BMR_Destroy();
 
     return 0;
 }

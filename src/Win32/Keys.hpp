@@ -2,7 +2,7 @@
  * ============================================
  * BREAKOUT
  * ============================================
- * FILE     src/Win32/Keys.cpp
+ * FILE     src/Win32/Keys.hpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
  * LICENSE  Unlicensed
  * ============================================
