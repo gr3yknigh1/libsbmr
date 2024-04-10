@@ -11,7 +11,6 @@
 #define BKR_STRING_HPP_INCLUDED
 
 #include "Types.hpp"
-#include "Macros.hpp"
 
 
 constexpr Size 

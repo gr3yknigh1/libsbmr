@@ -12,10 +12,6 @@
  * graphics.
  * */
 
-#include <cstdio>
-#include <cstdlib>
-#include <memory>
-
 #include <Windows.h>
 
 #include "StringView.hpp"
@@ -56,9 +52,17 @@ struct Rect {
         : X(x), Y(y), Width(width), Height(height)
     { }
 
-    constexpr bool IsInside(U16 x, U16 y) const noexcept
+    constexpr bool 
+    IsInside(U16 x, U16 y) const noexcept
     {
         return x >= X && x <= X + Width && y >= Y && y <= Y + Height;
+    }
+
+    constexpr bool 
+    IsOverlapping(const Rect &r) const noexcept
+    {
+        // TODO(ilya.a): Make more QA.
+        return IsInside(r.X, r.Y) || IsInside(r.X + r.Width, r.Y + r.Height);
     }
 };
 

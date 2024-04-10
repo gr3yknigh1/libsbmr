@@ -1,5 +1,6 @@
 # Editors
 .vs/
+*.sublime-*
 
 .cache/
 compile_commands.json
