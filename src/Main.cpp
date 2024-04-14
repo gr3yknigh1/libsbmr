@@ -24,6 +24,13 @@
 #include "Coloring.hpp"
 
 
+
+constexpr InternalFunc U64 
+GetOffset(U64 width, U64 y, U64 x) noexcept
+{ 
+    return width * y + x; 
+}
+
 /*
  * Extracts width and height of Win32's `RECT` type.
  */
@@ -61,32 +68,37 @@ private:
 
 
 enum class RenderCommandType {
-    NOP = 0,
+    NOP  = 0,
     FILL = 1,
+
     RECT = 10,
 };
 
 
+template<typename T>
 struct RenderCommand {
     RenderCommandType Type;
-    void * Payload;
+    T Payload;
 
     constexpr 
-    RenderCommand(RenderCommandType type    = RenderCommandType::NOP, 
-                  void *            payload = nullptr) noexcept
+    RenderCommand(RenderCommandType type, 
+                  T                 payload) noexcept
         : Type(type), Payload(payload)
     { }
 };
 
 
-#define BMR_RENDER_COMMAND_CAPACITY 64
+#define BMR_RENDER_COMMAND_CAPACITY 1024
 
 /*
  * Bitmap Renderer.
  */
 GlobalVar struct {
     Color4 ClearColor;
-    RenderCommand *Queue;
+
+    U8 *Queue;
+    U64 QueueCount;
+
     U8 BPP;                 // Bytes Per Pixel
     U64 XOffset;
     U64 YOffset;
@@ -105,8 +117,9 @@ BMR_Init(U8 bpp = 4) noexcept
 {
     BMR.ClearColor = COLOR_BLACK;
 
-    BMR.Queue = (RenderCommand *)VirtualAlloc(
+    BMR.Queue = (U8 *)VirtualAlloc(
         nullptr, BMR_RENDER_COMMAND_CAPACITY, MEM_COMMIT, PAGE_READWRITE);
+    BMR.QueueCount = 0;
 
     BMR.BPP = bpp;
     BMR.XOffset = 0;
@@ -116,9 +129,6 @@ BMR_Init(U8 bpp = 4) noexcept
     BMR.Pixels.Width = 0;
     BMR.Pixels.Height = 0;
 
-    // TODO: Move pixel 
-    // BMR.Pixels;
-    // BMR.Info;
 }
 
 
@@ -150,13 +160,80 @@ Win32_UpdateWindow(HDC deviceContext,
     );
 }
 
+void
+BMR_Fill(const Color4 &c) 
+{
+    *((RenderCommand<Color4>*)BMR.Queue) = RenderCommand<Color4>(
+        RenderCommandType::FILL, c);
+    BMR.QueueCount++;
+}
+
+
+
+struct _BMR_DrawRectPayload {
+    Rect Rect;
+    Color4 Color;
+};
+
+
+InternalFunc void
+BMR_DrawRect(const Rect &r, const Color4 &c) noexcept
+{
+    *((RenderCommand<_BMR_DrawRectPayload>*)BMR.Queue) = 
+        RenderCommand<_BMR_DrawRectPayload>(
+            RenderCommandType::RECT, {r, c});
+    BMR.QueueCount++;
+}
+
 
 InternalFunc void
 BMR_EndDrawing() noexcept
 {
-    for (U32 i = 0; i < BMR.Pixels.Width * BMR.Pixels.Height; ++i) 
-    {
-        ((Color4 *)BMR.Pixels.Buffer)[i] = BMR.ClearColor;
+
+    Size pitch = BMR.Pixels.Width * BMR.BPP;
+    U8 * row = (U8 *) BMR.Pixels.Buffer;
+
+    for (U64 y = 0; y < BMR.Pixels.Height; ++y) {
+        Color4 *pixel = (Color4 *)row;
+
+        for (U64 x = 0; x < BMR.Pixels.Width; ++x) {
+            Size offset = 0;
+
+            for (U64 commandIdx = 0; commandIdx < BMR.QueueCount; ++commandIdx) {
+
+                RenderCommandType type = 
+                    *((RenderCommandType *)(BMR.Queue + offset));
+
+                offset += sizeof(RenderCommandType);
+
+                switch (type) {
+                    case (RenderCommandType::FILL): {
+                        Color4 color = *(Color4*)(BMR.Queue + offset);
+                        offset += sizeof(Color4);
+                        *pixel = color;
+                    } break;
+                    case (RenderCommandType::RECT): {
+                        Rect rect = *(Rect*)(BMR.Queue + offset);
+                        offset += sizeof(rect);
+
+                        Color4 color = *(Color4*)(BMR.Queue + offset);
+                        offset += sizeof(Color4);
+
+                        if (rect.IsInside(x, y)) {
+                            *pixel = color;
+                        }
+
+                    } break;
+                    case (RenderCommandType::NOP):
+                    default: {
+                        *pixel = BMR.ClearColor;
+                    } break;
+                };
+            }
+            ++pixel;
+        }
+
+        row += pitch;
     }
 
     {
@@ -171,11 +248,12 @@ BMR_EndDrawing() noexcept
 
         Win32_UpdateWindow(dc.Handle, x, y, width, height);
     }
+
+    BMR.QueueCount = 0;
 }
 
 
-GlobalVar bool       shouldStop = false;
-
+GlobalVar bool shouldStop = false;
 
 GlobalVar struct {
     Rect Rect; 
@@ -204,14 +282,7 @@ GlobalVar struct {
 
 #define Win32_TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
 
-// InternalFunc void 
-// BM_FillWith(Color4 color) noexcept 
-// {
-//     for (U32 i = 0; i < bmWidth * bmHeight; ++i) 
-//     {
-//         ((Color4 *)bmBuffer)[i] = color;
-//     }
-// }
+
 
 // InternalFunc void
 // BM_RenderGradient(U32 xOffset, U32 yOffset) noexcept
@@ -231,30 +302,6 @@ GlobalVar struct {
 //         row += pitch;
 //     }
 // }
-
-
-// InternalFunc void
-// BM_RenderRect(Rect r, Color4 c) noexcept {
-//     Size pitch = bmWidth * bmBPP;
-//     U8 * row = (U8 *) bmBuffer;
-// 
-//     for (U32 y = 0; y < bmHeight; ++y) 
-//     {
-//         Color4 * pixel = (Color4 *)row;
-// 
-//         for (U32 x = 0; x < bmWidth; ++x) 
-//         {
-//             if (r.IsInside(x, y)) {
-//                 *pixel = c;
-//             }
-// 
-//             ++pixel;
-//         }
-// 
-//         row += pitch;
-//     }
-// }
-
 
 
 /*
@@ -498,9 +545,9 @@ WinMain(HINSTANCE instance,
 
         BMR_BeginDrawing(window);
 
-        // BM_FillWith(COLOR_WHITE);
+        BMR_Fill(COLOR_WHITE);
         // BM_RenderGradient(xOffset, yOffset);
-        // BM_RenderRect(player.Rect, player.Color);
+        BMR_DrawRect(player.Rect, player.Color);
         // BM_RenderRect(box.Rect, box.Color);
 
         BMR_EndDrawing();
