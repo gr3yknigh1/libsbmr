@@ -68,10 +68,11 @@ private:
 
 
 enum class RenderCommandType {
-    NOP  = 0,
-    FILL = 1,
+    NOP       = 00,
+    FILL      = 01,
 
-    RECT = 10,
+    RECT      = 10,
+    GRADIAENT = 20,
 };
 
 
@@ -96,8 +97,11 @@ struct RenderCommand {
 GlobalVar struct {
     Color4 ClearColor;
 
-    U8 *Queue;
-    U64 QueueCount;
+    struct {
+        U8 *Begin;
+        U8 *End;
+    } CommandQueue;
+    U64 CommandCount;
 
     U8 BPP;                 // Bytes Per Pixel
     U64 XOffset;
@@ -117,9 +121,10 @@ BMR_Init(U8 bpp = 4) noexcept
 {
     BMR.ClearColor = COLOR_BLACK;
 
-    BMR.Queue = (U8 *)VirtualAlloc(
+    BMR.CommandQueue.Begin = (U8 *)VirtualAlloc(
         nullptr, BMR_RENDER_COMMAND_CAPACITY, MEM_COMMIT, PAGE_READWRITE);
-    BMR.QueueCount = 0;
+    BMR.CommandQueue.End = BMR.CommandQueue.Begin;
+    BMR.CommandCount = 0;
 
     BMR.BPP = bpp;
     BMR.XOffset = 0;
@@ -128,7 +133,6 @@ BMR_Init(U8 bpp = 4) noexcept
     BMR.Pixels.Buffer = nullptr;
     BMR.Pixels.Width = 0;
     BMR.Pixels.Height = 0;
-
 }
 
 
@@ -160,29 +164,34 @@ Win32_UpdateWindow(HDC deviceContext,
     );
 }
 
-void
-BMR_Fill(const Color4 &c) 
+template<typename T> InternalFunc void 
+BMR_PushRenderCommand(RenderCommandType type, const T &payload) noexcept
 {
-    *((RenderCommand<Color4>*)BMR.Queue) = RenderCommand<Color4>(
-        RenderCommandType::FILL, c);
-    BMR.QueueCount++;
+    *(RenderCommand<T> *)BMR.CommandQueue.End = RenderCommand<T>(type, payload);
+    BMR.CommandQueue.End += sizeof(RenderCommand<T>);
+
+    BMR.CommandCount++;
+}
+
+void
+BMR_Fill(const Color4 &c) noexcept
+{ 
+    BMR_PushRenderCommand(RenderCommandType::FILL, c);
 }
 
 
-
-struct _BMR_DrawRectPayload {
+struct _BMR_DrawRect_Payload {
     Rect Rect;
     Color4 Color;
 };
 
-
 InternalFunc void
 BMR_DrawRect(const Rect &r, const Color4 &c) noexcept
-{
-    *((RenderCommand<_BMR_DrawRectPayload>*)BMR.Queue) = 
-        RenderCommand<_BMR_DrawRectPayload>(
-            RenderCommandType::RECT, {r, c});
-    BMR.QueueCount++;
+{ 
+    BMR_PushRenderCommand(
+        RenderCommandType::RECT, 
+        _BMR_DrawRect_Payload{r, c}
+    );
 }
 
 
@@ -199,30 +208,34 @@ BMR_EndDrawing() noexcept
         for (U64 x = 0; x < BMR.Pixels.Width; ++x) {
             Size offset = 0;
 
-            for (U64 commandIdx = 0; commandIdx < BMR.QueueCount; ++commandIdx) {
-
+            for (U64 commandIdx = 0; commandIdx < BMR.CommandCount; ++commandIdx) {
                 RenderCommandType type = 
-                    *((RenderCommandType *)(BMR.Queue + offset));
+                    *((RenderCommandType *)(BMR.CommandQueue.Begin + offset));
 
                 offset += sizeof(RenderCommandType);
 
                 switch (type) {
                     case (RenderCommandType::FILL): {
-                        Color4 color = *(Color4*)(BMR.Queue + offset);
+                        Color4 color = *(Color4*)(BMR.CommandQueue.Begin + offset);
                         offset += sizeof(Color4);
                         *pixel = color;
                     } break;
                     case (RenderCommandType::RECT): {
-                        Rect rect = *(Rect*)(BMR.Queue + offset);
+                        Rect rect = *(Rect*)(BMR.CommandQueue.Begin + offset);
                         offset += sizeof(rect);
 
-                        Color4 color = *(Color4*)(BMR.Queue + offset);
+                        Color4 color = *(Color4*)(BMR.CommandQueue.Begin + offset);
                         offset += sizeof(Color4);
 
                         if (rect.IsInside(x, y)) {
                             *pixel = color;
                         }
+                    } break;
+                    case (RenderCommandType::GRADIAENT): {
+                        Vec2u v = *(Vec2u*)(BMR.CommandQueue.Begin + offset);
+                        offset += sizeof(Vec2u);
 
+                        *pixel = Color4(x + v.X, y + v.Y, 0);
                     } break;
                     case (RenderCommandType::NOP):
                     default: {
@@ -249,7 +262,8 @@ BMR_EndDrawing() noexcept
         Win32_UpdateWindow(dc.Handle, x, y, width, height);
     }
 
-    BMR.QueueCount = 0;
+    BMR.CommandQueue.End = BMR.CommandQueue.Begin;
+    BMR.CommandCount = 0;
 }
 
 
@@ -268,7 +282,7 @@ GlobalVar struct {
 GlobalVar struct {
     Rect Rect;
     Color4 Color;
-    Vec3i Input;
+    Vec2i Input;
 } box;
 
 
@@ -283,25 +297,26 @@ GlobalVar struct {
 #define Win32_TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
 
 
+InternalFunc void
+BMR_RenderGradient(U32 xOffset, U32 yOffset) noexcept
+{ 
+    BMR_PushRenderCommand(RenderCommandType::GRADIAENT, Vec2u(xOffset, yOffset));
 
-// InternalFunc void
-// BM_RenderGradient(U32 xOffset, U32 yOffset) noexcept
-// { 
-//     Size pitch = bmWidth * bmBPP;
-//     U8 * row = (U8 *) bmBuffer;
-// 
-//     for (U32 y = 0; y < bmHeight; ++y) 
-//     {
-//         Color4 * pixel = (Color4 *)row;
-// 
-//         for (U32 x = 0; x < bmWidth; ++x) 
-//         {
-//             *pixel = Color4(x + xOffset, y + yOffset, 0);
-//             ++pixel;
-//         }
-//         row += pitch;
-//     }
-// }
+    // Size pitch = bmWidth * bmBPP;
+    // U8 * row = (U8 *) bmBuffer;
+
+    // for (U32 y = 0; y < bmHeight; ++y) 
+    // {
+    //     Color4 * pixel = (Color4 *)row;
+
+    //     for (U32 x = 0; x < bmWidth; ++x) 
+    //     {
+    //         *pixel = Color4(x + xOffset, y + yOffset, 0);
+    //         ++pixel;
+    //     }
+    //     row += pitch;
+    // }
+}
 
 
 /*
@@ -546,10 +561,9 @@ WinMain(HINSTANCE instance,
         BMR_BeginDrawing(window);
 
         BMR_Fill(COLOR_WHITE);
-        // BM_RenderGradient(xOffset, yOffset);
+        BMR_RenderGradient(xOffset, yOffset);
         BMR_DrawRect(player.Rect, player.Color);
-        // BM_RenderRect(box.Rect, box.Color);
-
+        BMR_DrawRect(box.Rect, box.Color);
         BMR_EndDrawing();
 
         xOffset++;
