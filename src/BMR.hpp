@@ -26,7 +26,8 @@ namespace BMR {
 	    NOP      = 00,
 	    CLEAR    = 01,
 
-	    RECT     = 10,
+	    LINE     = 10,
+	    RECT     = 11,
 	    GRADIENT = 20,
 	};
 
@@ -56,6 +57,10 @@ namespace BMR {
 	void SetClearColor(const Color4 &c) noexcept;
 
     void Clear() noexcept;
+
+    void DrawLine(U32 x1, U32 y1, U32 x2, U32 y2) noexcept;
+    void DrawLine(Vec2u p1, Vec2u p2) noexcept;
+
 	void DrawRect(const Rect &r, const Color4 &c) noexcept;
 	void DrawRect(U32 x, U32 y, U32 w, U32 h, const Color4 &c) noexcept;
 

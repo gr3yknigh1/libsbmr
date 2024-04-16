@@ -97,18 +97,20 @@ Win32_MainWindowProc(HWND   window,
                 case VK_RIGHT: {
                     player.Input.RightPressed = true;
                 } break;
-                // case KEY_A: {
-                //     box.Input.X = -1;
-                // } break;
-                // case KEY_D: {
-                //     box.Input.X = +1;
-                // } break;
-                // case KEY_S: {
-                //     box.Input.Y = -1;
-                // } break;
-                // case KEY_W: {
-                //     box.Input.Y = +1;
-                // } break;
+#ifdef COLLISSION_TESTING
+                case KEY_A: {
+                    box.Input.X = -1;
+                } break;
+                case KEY_D: {
+                    box.Input.X = +1;
+                } break;
+                case KEY_S: {
+                    box.Input.Y = -1;
+                } break;
+                case KEY_W: {
+                    box.Input.Y = +1;
+                } break;
+#endif
                 default: {
                 } break;
             }
@@ -121,14 +123,16 @@ Win32_MainWindowProc(HWND   window,
                 case VK_RIGHT: {
                     player.Input.RightPressed = false;
                 } break;
-                // case KEY_A:
-                // case KEY_D: {
-                //     box.Input.X = 0;
-                // } break;
-                // case KEY_W:
-                // case KEY_S: {
-                //     box.Input.Y = 0;
-                // } break;
+#ifdef COLLISSION_TESTING
+                case KEY_A:
+                case KEY_D: {
+                    box.Input.X = 0;
+                } break;
+                case KEY_W:
+                case KEY_S: {
+                    box.Input.Y = 0;
+                } break;
+#endif
                 default: {
                 } break;
             }
@@ -235,14 +239,16 @@ WinMain(HINSTANCE instance,
             player.Rect.X += PLAYER_SPEED;
         }
 
-        // box.Rect.X += PLAYER_SPEED * box.Input.X;
-        // box.Rect.Y += PLAYER_SPEED * box.Input.Y;
+#ifdef COLLISSION_TESTING
+        box.Rect.X += PLAYER_SPEED * box.Input.X;
+        box.Rect.Y += PLAYER_SPEED * box.Input.Y;
 
-        // if (player.Rect.IsOverlapping(box.Rect)) {
-        //     player.Color = COLOR_YELLOW;
-        // } else {
-        //     player.Color = PLAYER_COLOR;
-        // }
+        if (player.Rect.IsOverlapping(box.Rect)) {
+            player.Color = COLOR_YELLOW;
+        } else {
+            player.Color = PLAYER_COLOR;
+        }
+#endif
 
         BMR::BeginDrawing(window);
 
@@ -250,6 +256,9 @@ WinMain(HINSTANCE instance,
         BMR::DrawGrad(xOffset, yOffset);
         BMR::DrawRect(player.Rect, player.Color);
 
+        BMR::DrawLine(100, 200, 500, 600);
+
+#ifdef BLOCKS_RENDERING
         for (U32 blockYGrid = 0; blockYGrid < BLOCKS_ROWS_COUNT; ++blockYGrid) {
             for (U32 blockXGrid = 0; blockXGrid < BLOCKS_PER_ROW; ++blockXGrid) {
                 U32 blockXCoord = blockXGrid * BLOCK_WIDTH + BLOCKS_XOFFSET + BLOCKS_XPADDING * blockXGrid;
@@ -258,8 +267,11 @@ WinMain(HINSTANCE instance,
                     blockXCoord, blockYCoord, BLOCK_WIDTH, BLOCK_HEIGHT, BLOCK_COLOR);
             }
         }
+#endif
 
-        // BMR::DrawRect(box.Rect, box.Color);
+#ifdef COLLISSION_TESTING
+        BMR::DrawRect(box.Rect, box.Color);
+#endif
 
         BMR::EndDrawing();
 

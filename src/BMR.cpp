@@ -134,6 +134,14 @@ namespace BMR {
                             offset += sizeof(Color4);
                             *pixel = color;
                         } break;
+                        case (RenderCommandType::LINE): {
+                            Vec2u p1 = *(Vec2u*)(Inst.CommandQueue.Begin + offset);
+                            offset += sizeof(Vec2u);
+
+                            Vec2u p2 = *(Vec2u*)(Inst.CommandQueue.Begin + offset);
+                            offset += sizeof(Vec2u);
+
+                        } break;
                         case (RenderCommandType::RECT): {
                             Rect rect = *(Rect*)(Inst.CommandQueue.Begin + offset);
                             offset += sizeof(rect);
@@ -260,10 +268,6 @@ namespace BMR {
         Inst.ClearColor = c;    
     }
 
-    struct _DrawRect_Payload {
-        Rect Rect;
-        Color4 Color;
-    };
 
     void 
     Clear() noexcept 
@@ -273,6 +277,35 @@ namespace BMR {
             Inst.ClearColor
         );
     }
+
+    struct _DrawLine_Payload {
+        Vec2u p1;
+        Vec2u p2;
+    };
+
+    void 
+    DrawLine(U32 x1, U32 y1, U32 x2, U32 y2) noexcept
+    {
+        _PushRenderCommand(
+            RenderCommandType::LINE, 
+            _DrawLine_Payload{Vec2u(x1, y1), Vec2u(x2, y2)}
+        );
+    }
+
+
+    void
+    DrawLine(Vec2u p1, Vec2u p2) noexcept
+    {
+        _PushRenderCommand(
+            RenderCommandType::LINE, 
+            _DrawLine_Payload{p1, p2}
+        );
+    }
+
+    struct _DrawRect_Payload {
+        Rect Rect;
+        Color4 Color;
+    };
 
     void 
     DrawRect(const Rect &r, const Color4 &c) noexcept 
