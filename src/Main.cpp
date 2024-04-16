@@ -52,6 +52,16 @@ GlobalVar struct {
 #define PLAYER_COLOR (COLOR_RED + COLOR_BLUE)
 #define PLAYER_SPEED 10
 
+#define BLOCKS_XOFFSET 300
+#define BLOCKS_YOFFSET 500
+#define BLOCKS_PER_ROW 4
+#define BLOCKS_ROWS_COUNT 2
+#define BLOCKS_XPADDING 5
+#define BLOCKS_YPADDING 5
+#define BLOCK_WIDTH 100
+#define BLOCK_HEIGHT 80
+#define BLOCK_COLOR COLOR_RED
+
 
 LRESULT CALLBACK
 Win32_MainWindowProc(HWND   window,
@@ -87,18 +97,18 @@ Win32_MainWindowProc(HWND   window,
                 case VK_RIGHT: {
                     player.Input.RightPressed = true;
                 } break;
-                case KEY_A: {
-                    box.Input.X = -1;
-                } break;
-                case KEY_D: {
-                    box.Input.X = +1;
-                } break;
-                case KEY_S: {
-                    box.Input.Y = -1;
-                } break;
-                case KEY_W: {
-                    box.Input.Y = +1;
-                } break;
+                // case KEY_A: {
+                //     box.Input.X = -1;
+                // } break;
+                // case KEY_D: {
+                //     box.Input.X = +1;
+                // } break;
+                // case KEY_S: {
+                //     box.Input.Y = -1;
+                // } break;
+                // case KEY_W: {
+                //     box.Input.Y = +1;
+                // } break;
                 default: {
                 } break;
             }
@@ -111,14 +121,14 @@ Win32_MainWindowProc(HWND   window,
                 case VK_RIGHT: {
                     player.Input.RightPressed = false;
                 } break;
-                case KEY_A:
-                case KEY_D: {
-                    box.Input.X = 0;
-                } break;
-                case KEY_W:
-                case KEY_S: {
-                    box.Input.Y = 0;
-                } break;
+                // case KEY_A:
+                // case KEY_D: {
+                //     box.Input.X = 0;
+                // } break;
+                // case KEY_W:
+                // case KEY_S: {
+                //     box.Input.Y = 0;
+                // } break;
                 default: {
                 } break;
             }
@@ -225,20 +235,31 @@ WinMain(HINSTANCE instance,
             player.Rect.X += PLAYER_SPEED;
         }
 
-        box.Rect.X += PLAYER_SPEED * box.Input.X;
-        box.Rect.Y += PLAYER_SPEED * box.Input.Y;
+        // box.Rect.X += PLAYER_SPEED * box.Input.X;
+        // box.Rect.Y += PLAYER_SPEED * box.Input.Y;
 
-        if (player.Rect.IsOverlapping(box.Rect)) {
-            player.Color = COLOR_YELLOW;
-        } else {
-            player.Color = PLAYER_COLOR;
-        }
+        // if (player.Rect.IsOverlapping(box.Rect)) {
+        //     player.Color = COLOR_YELLOW;
+        // } else {
+        //     player.Color = PLAYER_COLOR;
+        // }
 
         BMR::BeginDrawing(window);
 
+        BMR::Clear();
         BMR::DrawGrad(xOffset, yOffset);
         BMR::DrawRect(player.Rect, player.Color);
-        BMR::DrawRect(box.Rect, box.Color);
+
+        for (U32 blockYGrid = 0; blockYGrid < BLOCKS_ROWS_COUNT; ++blockYGrid) {
+            for (U32 blockXGrid = 0; blockXGrid < BLOCKS_PER_ROW; ++blockXGrid) {
+                U32 blockXCoord = blockXGrid * BLOCK_WIDTH + BLOCKS_XOFFSET + BLOCKS_XPADDING * blockXGrid;
+                U32 blockYCoord = blockYGrid * BLOCK_HEIGHT + BLOCKS_YOFFSET + BLOCKS_YPADDING * blockYGrid;
+                BMR::DrawRect(
+                    blockXCoord, blockYCoord, BLOCK_WIDTH, BLOCK_HEIGHT, BLOCK_COLOR);
+            }
+        }
+
+        // BMR::DrawRect(box.Rect, box.Color);
 
         BMR::EndDrawing();
 

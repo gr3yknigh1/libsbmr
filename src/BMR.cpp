@@ -88,7 +88,21 @@ namespace BMR {
 
     void 
     DeInit() noexcept
-    { }
+    { 
+        if (Inst.CommandQueue.Begin != nullptr && VirtualFree(Inst.CommandQueue.Begin, 0, MEM_RELEASE) == 0) {
+            // TODO(ilya.a): Handle memory free error.
+        }
+        else {
+            Inst.CommandQueue.Begin = nullptr;
+            Inst.CommandQueue.End   = nullptr;
+        }
+
+        if (Inst.Pixels.Buffer != nullptr && VirtualFree(Inst.Pixels.Buffer, 0, MEM_RELEASE) == 0) {
+            // TODO(ilya.a): Handle memory free error.
+        } else {
+            Inst.Pixels.Buffer = nullptr;
+        }
+    }
 
     void 
     BeginDrawing(HWND window) noexcept 
@@ -115,7 +129,7 @@ namespace BMR {
                     offset += sizeof(RenderCommandType);
 
                     switch (type) {
-                        case (RenderCommandType::FILL): {
+                        case (RenderCommandType::CLEAR): {
                             Color4 color = *(Color4*)(Inst.CommandQueue.Begin + offset);
                             offset += sizeof(Color4);
                             *pixel = color;
@@ -230,6 +244,7 @@ namespace BMR {
     }
 
 
+    // TODO(ilya.a): Find better way to provide payload.
     template<typename T> InternalFunc void 
     _PushRenderCommand(RenderCommandType type, const T &payload) noexcept
     {
@@ -251,11 +266,31 @@ namespace BMR {
     };
 
     void 
+    Clear() noexcept 
+    {
+        _PushRenderCommand(
+            RenderCommandType::CLEAR, 
+            Inst.ClearColor
+        );
+    }
+
+    void 
     DrawRect(const Rect &r, const Color4 &c) noexcept 
     {
         _PushRenderCommand(
             RenderCommandType::RECT, 
             _DrawRect_Payload{r, c}
+        );
+    }
+
+    void 
+    DrawRect(U32 x, U32 y, 
+             U32 w, U32 h, 
+             const Color4 &c) noexcept 
+    {
+        _PushRenderCommand(
+            RenderCommandType::RECT, 
+            _DrawRect_Payload{Rect(x, y, w, h), c}
         );
     }
 

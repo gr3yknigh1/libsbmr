@@ -24,7 +24,7 @@ namespace BMR {
 
 	enum class RenderCommandType {
 	    NOP      = 00,
-	    FILL     = 01,
+	    CLEAR    = 01,
 
 	    RECT     = 10,
 	    GRADIENT = 20,
@@ -55,7 +55,9 @@ namespace BMR {
 
 	void SetClearColor(const Color4 &c) noexcept;
 
+    void Clear() noexcept;
 	void DrawRect(const Rect &r, const Color4 &c) noexcept;
+	void DrawRect(U32 x, U32 y, U32 w, U32 h, const Color4 &c) noexcept;
 
 	void DrawGrad(U32 xOffset, U32 yOffset) noexcept;
 	void DrawGrad(Vec2u offset) noexcept;
