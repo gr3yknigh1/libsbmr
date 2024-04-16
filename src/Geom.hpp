@@ -39,6 +39,12 @@ struct Rect {
 };
 
 
+constexpr U64 
+GetOffset(U64 width, U64 y, U64 x) noexcept
+{ 
+    return width * y + x; 
+}
+
 #endif  // BRK_GEOM_HPP_INCLUDED
 
 

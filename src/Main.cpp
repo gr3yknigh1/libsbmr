@@ -14,257 +14,15 @@
 
 #include <Windows.h>
 
-#include "StringView.hpp"
 #include "Types.hpp"
 #include "String.hpp"
 #include "Macros.hpp"
-#include "Win32/Keys.hpp"
 #include "Lin.hpp"
 #include "Geom.hpp"
 #include "Coloring.hpp"
-
-
-
-constexpr InternalFunc U64 
-GetOffset(U64 width, U64 y, U64 x) noexcept
-{ 
-    return width * y + x; 
-}
-
-/*
- * Extracts width and height of Win32's `RECT` type.
- */
-constexpr InternalFunc void
-GetRectSize(In  const RECT *r,
-            Out S32        *w,
-            Out S32        *h) noexcept
-{
-    *w = r->right  - r->left;
-    *h = r->bottom - r->top;
-}
-
-
-/*
- * RAII implementation of device context wrapper.
- *
- * Aquires device context and frees it on destruction.
- */
-struct ScopedDC {
-    HDC Handle;
-
-    ScopedDC(HWND window) noexcept 
-        : Handle(GetDC(window)), m_Window(window)
-    { }
-
-    ~ScopedDC() noexcept
-    {
-        ReleaseDC(this->m_Window, this->Handle);
-    }
-
-private:
-    HWND m_Window;
-};
-
-
-
-enum class RenderCommandType {
-    NOP       = 00,
-    FILL      = 01,
-
-    RECT      = 10,
-    GRADIAENT = 20,
-};
-
-
-template<typename T>
-struct RenderCommand {
-    RenderCommandType Type;
-    T Payload;
-
-    constexpr 
-    RenderCommand(RenderCommandType type, 
-                  T                 payload) noexcept
-        : Type(type), Payload(payload)
-    { }
-};
-
-
-#define BMR_RENDER_COMMAND_CAPACITY 1024
-
-/*
- * Bitmap Renderer.
- */
-GlobalVar struct {
-    Color4 ClearColor;
-
-    struct {
-        U8 *Begin;
-        U8 *End;
-    } CommandQueue;
-    U64 CommandCount;
-
-    U8 BPP;                 // Bytes Per Pixel
-    U64 XOffset;
-    U64 YOffset;
-    struct {
-        void *Buffer;
-        U64 Width;
-        U64 Height;
-    } Pixels;
-    BITMAPINFO Info;
-    HWND Window;
-} BMR;
-
-
-InternalFunc void
-BMR_Init(U8 bpp = 4) noexcept
-{
-    BMR.ClearColor = COLOR_BLACK;
-
-    BMR.CommandQueue.Begin = (U8 *)VirtualAlloc(
-        nullptr, BMR_RENDER_COMMAND_CAPACITY, MEM_COMMIT, PAGE_READWRITE);
-    BMR.CommandQueue.End = BMR.CommandQueue.Begin;
-    BMR.CommandCount = 0;
-
-    BMR.BPP = bpp;
-    BMR.XOffset = 0;
-    BMR.YOffset = 0;
-
-    BMR.Pixels.Buffer = nullptr;
-    BMR.Pixels.Width = 0;
-    BMR.Pixels.Height = 0;
-}
-
-
-InternalFunc void
-BMR_Destroy() noexcept
-{ }
-
-
-InternalFunc void
-BMR_BeginDrawing(HWND window) noexcept
-{
-    BMR.Window = window;
-}
-
-
-InternalFunc void
-Win32_UpdateWindow(HDC deviceContext,
-                   S32 windowXOffset,
-                   S32 windowYOffset,
-                   S32 windowWidth,
-                   S32 windowHeight) noexcept
-{
-    StretchDIBits(
-        deviceContext,
-        BMR.XOffset,   BMR.YOffset,   BMR.Pixels.Width,   BMR.Pixels.Height,
-        windowXOffset, windowYOffset, windowWidth, windowHeight,
-        BMR.Pixels.Buffer, &BMR.Info,
-        DIB_RGB_COLORS, SRCCOPY
-    );
-}
-
-template<typename T> InternalFunc void 
-BMR_PushRenderCommand(RenderCommandType type, const T &payload) noexcept
-{
-    *(RenderCommand<T> *)BMR.CommandQueue.End = RenderCommand<T>(type, payload);
-    BMR.CommandQueue.End += sizeof(RenderCommand<T>);
-
-    BMR.CommandCount++;
-}
-
-void
-BMR_Fill(const Color4 &c) noexcept
-{ 
-    BMR_PushRenderCommand(RenderCommandType::FILL, c);
-}
-
-
-struct _BMR_DrawRect_Payload {
-    Rect Rect;
-    Color4 Color;
-};
-
-InternalFunc void
-BMR_DrawRect(const Rect &r, const Color4 &c) noexcept
-{ 
-    BMR_PushRenderCommand(
-        RenderCommandType::RECT, 
-        _BMR_DrawRect_Payload{r, c}
-    );
-}
-
-
-InternalFunc void
-BMR_EndDrawing() noexcept
-{
-
-    Size pitch = BMR.Pixels.Width * BMR.BPP;
-    U8 * row = (U8 *) BMR.Pixels.Buffer;
-
-    for (U64 y = 0; y < BMR.Pixels.Height; ++y) {
-        Color4 *pixel = (Color4 *)row;
-
-        for (U64 x = 0; x < BMR.Pixels.Width; ++x) {
-            Size offset = 0;
-
-            for (U64 commandIdx = 0; commandIdx < BMR.CommandCount; ++commandIdx) {
-                RenderCommandType type = 
-                    *((RenderCommandType *)(BMR.CommandQueue.Begin + offset));
-
-                offset += sizeof(RenderCommandType);
-
-                switch (type) {
-                    case (RenderCommandType::FILL): {
-                        Color4 color = *(Color4*)(BMR.CommandQueue.Begin + offset);
-                        offset += sizeof(Color4);
-                        *pixel = color;
-                    } break;
-                    case (RenderCommandType::RECT): {
-                        Rect rect = *(Rect*)(BMR.CommandQueue.Begin + offset);
-                        offset += sizeof(rect);
-
-                        Color4 color = *(Color4*)(BMR.CommandQueue.Begin + offset);
-                        offset += sizeof(Color4);
-
-                        if (rect.IsInside(x, y)) {
-                            *pixel = color;
-                        }
-                    } break;
-                    case (RenderCommandType::GRADIAENT): {
-                        Vec2u v = *(Vec2u*)(BMR.CommandQueue.Begin + offset);
-                        offset += sizeof(Vec2u);
-
-                        *pixel = Color4(x + v.X, y + v.Y, 0);
-                    } break;
-                    case (RenderCommandType::NOP):
-                    default: {
-                        *pixel = BMR.ClearColor;
-                    } break;
-                };
-            }
-            ++pixel;
-        }
-
-        row += pitch;
-    }
-
-    {
-        auto dc = ScopedDC(BMR.Window);
-
-        RECT windowRect;
-        GetClientRect(BMR.Window, &windowRect);
-        S32 x = windowRect.left;
-        S32 y = windowRect.top;
-        S32 width = 0, height = 0;
-        GetRectSize(&windowRect, &width, &height);
-
-        Win32_UpdateWindow(dc.Handle, x, y, width, height);
-    }
-
-    BMR.CommandQueue.End = BMR.CommandQueue.Begin;
-    BMR.CommandCount = 0;
-}
+#include "BMR.hpp"
+#include "Win32/Keys.hpp"
+#include "Win32/Misc.hpp"
 
 
 GlobalVar bool shouldStop = false;
@@ -279,6 +37,7 @@ GlobalVar struct {
     } Input;
 } player;
 
+
 GlobalVar struct {
     Rect Rect;
     Color4 Color;
@@ -292,77 +51,6 @@ GlobalVar struct {
 #define PLAYER_HEIGHT 80
 #define PLAYER_COLOR (COLOR_RED + COLOR_BLUE)
 #define PLAYER_SPEED 10
-
-
-#define Win32_TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
-
-
-InternalFunc void
-BMR_RenderGradient(U32 xOffset, U32 yOffset) noexcept
-{ 
-    BMR_PushRenderCommand(RenderCommandType::GRADIAENT, Vec2u(xOffset, yOffset));
-
-    // Size pitch = bmWidth * bmBPP;
-    // U8 * row = (U8 *) bmBuffer;
-
-    // for (U32 y = 0; y < bmHeight; ++y) 
-    // {
-    //     Color4 * pixel = (Color4 *)row;
-
-    //     for (U32 x = 0; x < bmWidth; ++x) 
-    //     {
-    //         *pixel = Color4(x + xOffset, y + yOffset, 0);
-    //         ++pixel;
-    //     }
-    //     row += pitch;
-    // }
-}
-
-
-/*
- * DIB: Device Independent Bitmap
- */
-InternalFunc void
-Win32_ResizeDIBSection(S32 width,
-                       S32 height) noexcept
-{
-    if (BMR.Pixels.Buffer != nullptr && VirtualFree(BMR.Pixels.Buffer, 0, MEM_RELEASE) == 0) {
-        //                                                                ^^^^^^^^^^^
-        // NOTE(ilya.a): Might be more reasonable to use MEM_DECOMMIT instead for 
-        // MEM_RELEASE. Because in that case it's will be keep buffer around, until
-        // we use it again.
-        // P.S. Also will be good to try protect buffer after deallocating or other
-        // stuff.
-        //
-        // TODO(ilya.a): 
-        //     - [ ] Checkout how it works.
-        //     - [ ] Handle allocation error.
-        OutputDebugString("Failed to free backbuffer memory!\n");
-    }
-    BMR.Pixels.Width = width;
-    BMR.Pixels.Height = height;
-
-    BMR.Info.bmiHeader.biSize          = sizeof(BMR.Info.bmiHeader);
-    BMR.Info.bmiHeader.biWidth         = width;
-    BMR.Info.bmiHeader.biHeight        = height;
-    BMR.Info.bmiHeader.biPlanes        = 1;
-    BMR.Info.bmiHeader.biBitCount      = 32;      // NOTE: Align to WORD
-    BMR.Info.bmiHeader.biCompression   = BI_RGB;
-    BMR.Info.bmiHeader.biSizeImage     = 0;
-    BMR.Info.bmiHeader.biXPelsPerMeter = 0;
-    BMR.Info.bmiHeader.biYPelsPerMeter = 0;
-    BMR.Info.bmiHeader.biClrUsed       = 0;
-    BMR.Info.bmiHeader.biClrImportant  = 0;
-
-    Size bufferSize = width * height * BMR.BPP;
-    BMR.Pixels.Buffer = 
-        VirtualAlloc(nullptr, bufferSize, MEM_COMMIT, PAGE_READWRITE);
-
-    if (BMR.Pixels.Buffer == nullptr) {
-        // TODO:(ilya.a): Check for errors.
-        OutputDebugString("Failed to allocate memory for backbuffer!\n");
-    }
-}
 
 
 LRESULT CALLBACK
@@ -382,28 +70,14 @@ Win32_MainWindowProc(HWND   window,
 
             RECT r = {0};
             GetClientRect(window, &r);
-
             S32 width = 0, height = 0;
             GetRectSize(&r, &width, &height);
 
-            Win32_ResizeDIBSection(width, height);
+            BMR::Resize(width, height);
         } break;
         case WM_PAINT: {
             OutputDebugString("WM_PAINT\n");
-            PAINTSTRUCT paint = {0};
-            HDC deviceContext = BeginPaint(window, &paint);
-
-            if (deviceContext == nullptr) {
-                // TODO(ilya.a): Handle error
-            } else {
-                S32 x = paint.rcPaint.left;
-                S32 y = paint.rcPaint.top;
-                S32 width = 0, height = 0;
-                GetRectSize(&(paint.rcPaint), &width, &height);
-                Win32_UpdateWindow(deviceContext, x, y, width, height);
-            }
-
-            EndPaint(window, &paint);
+            BMR::Update(window);
         } break;
         case WM_KEYDOWN: {
             switch (wParam) {
@@ -478,7 +152,7 @@ WinMain(HINSTANCE instance,
         int showMode)
 {
 
-    BMR_Init();
+    BMR::Init();
 
     PersistVar LPCSTR CLASS_NAME = "Breakout";
     PersistVar LPCSTR WINDOW_TITLE = "Breakout";
@@ -527,6 +201,8 @@ WinMain(HINSTANCE instance,
     box.Rect = Rect(0, 0, 100, 100);
     box.Color = COLOR_RED;
 
+    BMR::SetClearColor(COLOR_WHITE);
+
     while (!shouldStop) {
 
         MSG message = {};
@@ -558,19 +234,19 @@ WinMain(HINSTANCE instance,
             player.Color = PLAYER_COLOR;
         }
 
-        BMR_BeginDrawing(window);
+        BMR::BeginDrawing(window);
 
-        BMR_Fill(COLOR_WHITE);
-        BMR_RenderGradient(xOffset, yOffset);
-        BMR_DrawRect(player.Rect, player.Color);
-        BMR_DrawRect(box.Rect, box.Color);
-        BMR_EndDrawing();
+        BMR::DrawGrad(xOffset, yOffset);
+        BMR::DrawRect(player.Rect, player.Color);
+        BMR::DrawRect(box.Rect, box.Color);
+
+        BMR::EndDrawing();
 
         xOffset++;
         yOffset++;
     }
 
-    BMR_Destroy();
+    BMR::DeInit();
 
     return 0;
 }

@@ -12,7 +12,7 @@
 #define BRK_COLORING_HPP_INCLUDED
 
 #include "Types.hpp"
-
+#include "Macros.hpp"
 
 struct Color4 {
     U8 B;
