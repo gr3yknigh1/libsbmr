@@ -77,12 +77,8 @@ Win32_MainWindowProc(HWND   window,
         } break;
         case WM_SIZE: {
             OutputDebugString("WM_SIZE\n");
-
-            RECT r = {0};
-            GetClientRect(window, &r);
-            S32 width = 0, height = 0;
-            GetRectSize(&r, &width, &height);
-
+            S32 width = LOWORD(lParam);
+            S32 height = HIWORD(lParam);
             BMR::Resize(width, height);
         } break;
         case WM_PAINT: {
