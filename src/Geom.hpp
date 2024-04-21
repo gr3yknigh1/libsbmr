@@ -29,6 +29,8 @@ struct Rect {
         return x >= X && x <= X + Width && y >= Y && y <= Y + Height;
     }
 
+
+    // TODO(ilya.a): Fix bug when `r` is bigger than `this`.
     constexpr bool IsOverlapping(const Rect &r) const noexcept
     {
         return IsInside(r.X + 0      , r.Y + 0) 
