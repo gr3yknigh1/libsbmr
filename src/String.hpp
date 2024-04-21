@@ -4,7 +4,7 @@
  * ============================================
  * FILE     src/String.hpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
- * LICENSE  Unlicensed
+ * LICENSE  Copyright (c) 2024 Ilya Akkuzin
  * ============================================
  * */
 #ifndef BKR_STRING_HPP_INCLUDED

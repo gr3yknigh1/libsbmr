@@ -4,7 +4,7 @@
  * ============================================
  * FILE     src/Main.cpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
- * LICENSE  Unlicensed
+ * LICENSE  Copyright (c) 2024 Ilya Akkuzin
  * ============================================
  *
  * This is small educational project where I

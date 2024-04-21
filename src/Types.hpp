@@ -4,7 +4,7 @@
  * ============================================
  * FILE     src/Types.hpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
- * LICENSE  Unlicensed
+ * LICENSE  Copyright (c) 2024 Ilya Akkuzin
  * ============================================
  * */
 #ifndef SBMR_TYPES_HPP_INCLUDED

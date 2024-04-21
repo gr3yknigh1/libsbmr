@@ -4,7 +4,7 @@
  * ============================================
  * FILE     src/Win32/Keys.hpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
- * LICENSE  Unlicensed
+ * LICENSE  Copyright (c) 2024 Ilya Akkuzin
  * ============================================
  *
  * */
