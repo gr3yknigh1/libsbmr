@@ -1,0 +1,16 @@
+- [ ] Optimize renderer:
+
+    Current implementation is looping over each pixel each frame. Moreover, 
+    it's looping for each render command (screen clear, render rect and etc.)
+    for each pixel. 
+    								n^2 * m
+    Where is `n` - number of pixels, and `m` - number of render commands on 
+    frame. Try to reduce algorithm to only `m`. Loop over pixel when it's 
+    neccecery.
+
+- [ ] Implement line rendering algorithm:
+    <https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm>
+
+- [ ] Circles ???
+
+- [ ] Build as static library.
