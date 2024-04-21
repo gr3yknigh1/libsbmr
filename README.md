@@ -1,4 +1,4 @@
-# lisbmr
+# libsbmr
 
 Stupid BitMap Renderer.  
 
