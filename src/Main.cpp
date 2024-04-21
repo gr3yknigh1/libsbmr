@@ -160,10 +160,10 @@ Win32_MainWindowProc(HWND   window,
 
 
 int WINAPI
-WinMain(HINSTANCE instance,
-        HINSTANCE prevInstance,
-        LPSTR commandLine,
-        int showMode)
+WinMain(_In_ HINSTANCE instance,
+        _In_opt_ HINSTANCE prevInstance,
+        _In_ LPSTR commandLine,
+        _In_ int showMode)
 {
 
     BMR::Init();
