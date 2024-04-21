@@ -1,6 +1,6 @@
 /*
  * ============================================
- * BREAKOUT
+ * LIBSBMR
  * ============================================
  * FILE     src/Coloring.hpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
@@ -8,8 +8,8 @@
  * ============================================
  * */
 
-#ifndef BRK_COLORING_HPP_INCLUDED
-#define BRK_COLORING_HPP_INCLUDED
+#ifndef SBMR_COLORING_HPP_INCLUDED
+#define SBMR_COLORING_HPP_INCLUDED
 
 #include "Types.hpp"
 #include "Macros.hpp"
@@ -45,5 +45,5 @@ GlobalVar constexpr Color4 COLOR_BLACK = Color4(0, 0, 0, 0);
 GlobalVar constexpr Color4 COLOR_YELLOW = COLOR_GREEN + COLOR_RED;
 
 
-#endif // BRK_COLORING_HPP_INCLUDED
+#endif // SBMR_COLORING_HPP_INCLUDED
 

@@ -1,6 +1,6 @@
 /*
  * ============================================
- * BREAKOUT
+ * LIBSBMR
  * ============================================
  * FILE     src/Win32/ScopedDC.hpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
@@ -8,8 +8,8 @@
  * ============================================
  * */
 
-#ifndef BRK_WIN32_SCOPEDDC_HPP_INCLUDED
-#define BRK_WIN32_SCOPEDDC_HPP_INCLUDED
+#ifndef SBMR_WIN32_SCOPEDDC_HPP_INCLUDED
+#define SBMR_WIN32_SCOPEDDC_HPP_INCLUDED
 
 #include <Windows.h>
 
@@ -35,4 +35,4 @@ private:
     HWND m_Window;
 };
 
-#endif  // BRK_WIN32_SCOPEDDC_HPP_INCLUDED
+#endif  // SBMR_WIN32_SCOPEDDC_HPP_INCLUDED

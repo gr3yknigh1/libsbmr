@@ -1,6 +1,6 @@
 /*
  * ============================================
- * BREAKOUT
+ * LIBSBMR
  * ============================================
  * FILE     src/Main.cpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
@@ -259,6 +259,7 @@ WinMain(HINSTANCE instance,
         BMR::DrawLine(100, 200, 500, 600);
 
 #ifdef BLOCKS_RENDERING
+        // NOTE(ilya.a): This is really dog-slow :c
         for (U32 blockYGrid = 0; blockYGrid < BLOCKS_ROWS_COUNT; ++blockYGrid) {
             for (U32 blockXGrid = 0; blockXGrid < BLOCKS_PER_ROW; ++blockXGrid) {
                 U32 blockXCoord = blockXGrid * BLOCK_WIDTH + BLOCKS_XOFFSET + BLOCKS_XPADDING * blockXGrid;

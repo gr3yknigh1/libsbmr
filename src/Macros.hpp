@@ -1,14 +1,14 @@
 /*
  * ============================================
- * BREAKOUT
+ * LIBSBMR
  * ============================================
  * FILE     src/Macros.hpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
  * LICENSE  Unlicensed
  * ============================================
  * */
-#ifndef BRK_MACROS_HPP_INCLUDED
-#define BRK_MACROS_HPP_INCLUDED
+#ifndef SBMR_MACROS_HPP_INCLUDED
+#define SBMR_MACROS_HPP_INCLUDED
 
 #define InternalFunc static
 #define GlobalVar static
@@ -20,4 +20,4 @@
 #define Out
 #define In
 
-#endif  // BRK_MACROS_HPP_INCLUDED
+#endif  // SBMR_MACROS_HPP_INCLUDED

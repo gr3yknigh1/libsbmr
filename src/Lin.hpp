@@ -1,6 +1,6 @@
 /*
  * ============================================
- * BREAKOUT
+ * LIBSBMR
  * ============================================
  * FILE     src/Lin.hpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
@@ -9,8 +9,8 @@
  * */
 
 
-#ifndef BRK_LIN_HPP_INCLUDED
-#define BRK_LIN_HPP_INCLUDED
+#ifndef SBMR_LIN_HPP_INCLUDED
+#define SBMR_LIN_HPP_INCLUDED
 
 
 #include "Types.hpp"
@@ -36,4 +36,4 @@ struct Vec2u {
     { }
 };
 
-#endif // BRK_LIN_HPP_INCLUDED
+#endif // SBMR_LIN_HPP_INCLUDED

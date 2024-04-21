@@ -1,6 +1,6 @@
 /*
  * ============================================
- * BREAKOUT
+ * LIBSBMR
  * ============================================
  * FILE     src/Win32/Misc.hpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
@@ -8,8 +8,8 @@
  * ============================================
  * */
 
-#ifndef BRK_WIN32_MISC_HPP_INCLUDED
-#define BRK_WIN32_MISC_HPP_INCLUDED
+#ifndef SBMR_WIN32_MISC_HPP_INCLUDED
+#define SBMR_WIN32_MISC_HPP_INCLUDED
 
 #include <Windows.h>
 
@@ -35,4 +35,4 @@ GetRectSize(In  const RECT *r,
 #define Win32_TextOutA_CStr(HDC, X, Y, MSG) TextOutA((HDC), (X), (Y), (MSG), CStr_GetLength((MSG)))
 
 
-#endif  // BRK_WIN32_MISC_HPP_INCLUDED
+#endif  // SBMR_WIN32_MISC_HPP_INCLUDED

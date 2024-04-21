@@ -1,14 +1,14 @@
 /*
  * ============================================
- * BREAKOUT
+ * LIBSBMR
  * ============================================
  * FILE     src/Types.hpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
  * LICENSE  Unlicensed
  * ============================================
  * */
-#ifndef BRK_TYPES_HPP_INCLUDED
-#define BRK_TYPES_HPP_INCLUDED
+#ifndef SBMR_TYPES_HPP_INCLUDED
+#define SBMR_TYPES_HPP_INCLUDED
 
 typedef signed char     S8;
 typedef signed short    S16;
@@ -31,4 +31,4 @@ typedef double          F64;
 typedef unsigned long   Size;
 typedef const char *    CStr;
 
-#endif // BRK_TYPES_HPP_INCLUDED
+#endif // SBMR_TYPES_HPP_INCLUDED

@@ -1,6 +1,6 @@
 /*
  * ============================================
- * BREAKOUT
+ * LIBSBMR
  * ============================================
  * FILE     src/Geom.hpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
@@ -9,8 +9,8 @@
  * */
 
 
-#ifndef BRK_GEOM_HPP_INCLUDED
-#define BRK_GEOM_HPP_INCLUDED
+#ifndef SBMR_GEOM_HPP_INCLUDED
+#define SBMR_GEOM_HPP_INCLUDED
 
 #include "Types.hpp"
 
@@ -47,6 +47,6 @@ GetOffset(U64 width, U64 y, U64 x) noexcept
     return width * y + x; 
 }
 
-#endif  // BRK_GEOM_HPP_INCLUDED
+#endif  // SBMR_GEOM_HPP_INCLUDED
 
 

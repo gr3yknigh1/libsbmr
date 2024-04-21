@@ -1,6 +1,6 @@
 /*
  * ============================================
- * BREAKOUT
+ * LIBSBMR
  * ============================================
  * FILE     src/BMR.hpp
  * AUTHOR   Ilya Akkuzin <gr3yknigh1@gmail.com>
@@ -8,8 +8,8 @@
  * ============================================
  * */
 
-#ifndef BRK_BMR_HPP_INCLUDED
-#define BRK_BMR_HPP_INCLUDED
+#ifndef SBMR_BMR_HPP_INCLUDED
+#define SBMR_BMR_HPP_INCLUDED
 
 #include "Types.hpp"
 #include "Coloring.hpp"
@@ -69,5 +69,5 @@ namespace BMR {
 
 };  // namespace BMR
 
-#endif  // BRK_BMR_HPP_INCLUDED
+#endif  // SBMR_BMR_HPP_INCLUDED
 
